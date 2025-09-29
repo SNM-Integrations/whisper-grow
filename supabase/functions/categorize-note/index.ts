@@ -26,16 +26,16 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     // Fetch user's AI settings
-    const { data: userSettings } = await supabase
+    const { data: aiSettings } = await supabase
       .from('ai_settings')
       .select('model, temperature, system_prompt')
       .eq('user_id', userId)
       .maybeSingle();
 
     // Use custom settings or defaults
-    const model = userSettings?.model || 'google/gemini-2.5-flash';
-    const temperature = userSettings?.temperature || 0.3;
-    const systemPrompt = userSettings?.system_prompt || `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
+    const model = aiSettings?.model || 'google/gemini-2.5-flash';
+    const temperature = aiSettings?.temperature || 0.3;
+    const systemPrompt = aiSettings?.system_prompt || `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
 
 Rules:
 1. If the note fits an existing category, return that category name

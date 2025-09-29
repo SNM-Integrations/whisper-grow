@@ -1,32 +1,16 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
+import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ArrowLeft, Save, RotateCcw, Trash2, Info } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Save, RotateCcw, Info } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-
-const AVAILABLE_MODELS = [
-  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash (Recommended)" },
-  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro (Most Capable)" },
-  { value: "google/gemini-2.5-flash-lite", label: "Gemini 2.5 Flash Lite (Fastest)" },
-  { value: "openai/gpt-5", label: "GPT-5 (Premium)" },
-  { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
-];
-
-const DEFAULT_PROMPT = `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
-
-Rules:
-1. If the note fits an existing category, return that category name
-2. If no existing category fits well, suggest a new meaningful category name
-3. Category names should be clear, concise, and descriptive (1-3 words)
-4. Return ONLY the category name, nothing else`;
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 interface AISettings {
   model: string;
@@ -40,151 +24,167 @@ interface Category {
   note_count?: number;
 }
 
-export default function Settings() {
+const DEFAULT_SETTINGS: AISettings = {
+  model: 'google/gemini-2.5-flash',
+  temperature: 0.3,
+  system_prompt: `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
+
+Rules:
+1. If the note fits an existing category, return that category name
+2. If no existing category fits well, suggest a new meaningful category name
+3. Category names should be clear, concise, and descriptive (1-3 words)
+4. Return ONLY the category name, nothing else`
+};
+
+const Settings = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [settings, setSettings] = useState<AISettings>({
-    model: "google/gemini-2.5-flash",
-    temperature: 0.3,
-    system_prompt: DEFAULT_PROMPT,
-  });
+  const [settings, setSettings] = useState<AISettings>(DEFAULT_SETTINGS);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadSettings();
-    loadCategories();
+    fetchSettings();
+    fetchCategories();
   }, []);
 
-  const loadSettings = async () => {
+  const fetchSettings = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) return;
 
       const { data, error } = await supabase
-        .from("ai_settings")
-        .select("*")
-        .eq("user_id", user.id)
+        .from('ai_settings')
+        .select('*')
+        .eq('user_id', user.id)
         .maybeSingle();
 
-      if (error && error.code !== "PGRST116") throw error;
+      if (error && error.code !== 'PGRST116') throw error;
 
       if (data) {
         setSettings({
           model: data.model,
           temperature: data.temperature,
-          system_prompt: data.system_prompt,
+          system_prompt: data.system_prompt
         });
       }
     } catch (error) {
-      console.error("Error loading settings:", error);
-      toast.error("Failed to load settings");
+      console.error('Error fetching settings:', error);
+      toast.error('Failed to load settings');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadCategories = async () => {
+  const fetchCategories = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) return;
 
       const { data, error } = await supabase
-        .from("categories")
+        .from('categories')
         .select(`
           id,
           name,
           notes:notes(count)
         `)
-        .eq("user_id", user.id);
+        .eq('user_id', user.id)
+        .order('name');
 
       if (error) throw error;
 
-      const categoriesWithCount = data?.map((cat: any) => ({
+      const categoriesWithCount = data?.map(cat => ({
         id: cat.id,
         name: cat.name,
-        note_count: cat.notes[0]?.count || 0,
+        note_count: cat.notes?.[0]?.count || 0
       })) || [];
 
       setCategories(categoriesWithCount);
     } catch (error) {
-      console.error("Error loading categories:", error);
+      console.error('Error fetching categories:', error);
+      toast.error('Failed to load categories');
     }
   };
 
-  const handleSave = async () => {
+  const handleSaveSettings = async () => {
     setIsSaving(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
       const { error } = await supabase
-        .from("ai_settings")
+        .from('ai_settings')
         .upsert({
           user_id: user.id,
           model: settings.model,
           temperature: settings.temperature,
-          system_prompt: settings.system_prompt,
+          system_prompt: settings.system_prompt
+        }, {
+          onConflict: 'user_id'
         });
 
       if (error) throw error;
 
-      toast.success("Settings saved successfully");
+      toast.success('Settings saved successfully');
     } catch (error) {
-      console.error("Error saving settings:", error);
-      toast.error("Failed to save settings");
+      console.error('Error saving settings:', error);
+      toast.error('Failed to save settings');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleReset = () => {
-    setSettings({
-      model: "google/gemini-2.5-flash",
-      temperature: 0.3,
-      system_prompt: DEFAULT_PROMPT,
-    });
-    toast.info("Settings reset to defaults");
+  const handleResetSettings = () => {
+    setSettings(DEFAULT_SETTINGS);
+    toast.info('Settings reset to defaults');
   };
 
-  const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm("Are you sure? This will remove the category from all notes.")) return;
-
+  const handleDeleteCategory = async (categoryId: string, categoryName: string) => {
     try {
       const { error } = await supabase
-        .from("categories")
+        .from('categories')
         .delete()
-        .eq("id", categoryId);
+        .eq('id', categoryId);
 
       if (error) throw error;
 
-      toast.success("Category deleted");
-      loadCategories();
+      toast.success(`Category "${categoryName}" deleted`);
+      fetchCategories();
     } catch (error) {
-      console.error("Error deleting category:", error);
-      toast.error("Failed to delete category");
+      console.error('Error deleting category:', error);
+      toast.error('Failed to delete category');
     }
   };
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Loading settings...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary flex items-center justify-center">
+        <div className="text-muted-foreground">Loading settings...</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container max-w-4xl mx-auto py-8 px-4">
-        <div className="flex items-center gap-4 mb-8">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/")}>
-            <ArrowLeft className="h-5 w-5" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary">
+      {/* Header */}
+      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-6 py-4">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/")}
+            className="gap-2"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
-            <p className="text-muted-foreground">Configure your AI assistant and manage categories</p>
-          </div>
+        </div>
+      </header>
+
+      {/* Main Content */}
+      <div className="container mx-auto px-6 py-8 max-w-4xl">
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Settings</h1>
+          <p className="text-muted-foreground">Configure your AI assistant and manage categories</p>
         </div>
 
         <Tabs defaultValue="ai" className="space-y-6">
@@ -194,172 +194,182 @@ export default function Settings() {
             <TabsTrigger value="info">How It Works</TabsTrigger>
           </TabsList>
 
+          {/* AI Configuration Tab */}
           <TabsContent value="ai" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>AI Model</CardTitle>
-                <CardDescription>Choose the AI model for note categorization</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Select
-                  value={settings.model}
-                  onValueChange={(value) => setSettings({ ...settings, model: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {AVAILABLE_MODELS.map((model) => (
-                      <SelectItem key={model.value} value={model.value}>
-                        {model.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardContent>
-            </Card>
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="model">AI Model</Label>
+                  <Select
+                    value={settings.model}
+                    onValueChange={(value) => setSettings({ ...settings, model: value })}
+                  >
+                    <SelectTrigger id="model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="google/gemini-2.5-flash">Gemini 2.5 Flash (Recommended)</SelectItem>
+                      <SelectItem value="google/gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Faster)</SelectItem>
+                      <SelectItem value="google/gemini-2.5-pro">Gemini 2.5 Pro (Most Capable)</SelectItem>
+                      <SelectItem value="openai/gpt-5-nano">GPT-5 Nano (Fast)</SelectItem>
+                      <SelectItem value="openai/gpt-5-mini">GPT-5 Mini (Balanced)</SelectItem>
+                      <SelectItem value="openai/gpt-5">GPT-5 (Most Accurate)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Choose the AI model for categorizing your notes</p>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Temperature: {settings.temperature}</CardTitle>
-                <CardDescription>
-                  Controls randomness. Lower values (0.0-0.3) are more focused and deterministic.
-                  Higher values (0.7-1.0) are more creative.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Slider
-                  value={[settings.temperature]}
-                  onValueChange={([value]) => setSettings({ ...settings, temperature: value })}
-                  min={0}
-                  max={1}
-                  step={0.1}
-                  className="w-full"
-                />
-              </CardContent>
-            </Card>
+                <div className="space-y-2">
+                  <Label htmlFor="temperature">Temperature: {settings.temperature}</Label>
+                  <Slider
+                    id="temperature"
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    value={[settings.temperature]}
+                    onValueChange={(value) => setSettings({ ...settings, temperature: value[0] })}
+                    className="py-4"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Lower values (0.0-0.3) are more focused and deterministic. Higher values (0.7-1.0) are more creative.
+                  </p>
+                </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>System Prompt</CardTitle>
-                <CardDescription>
-                  Customize how the AI categorizes your notes. The AI will see your existing categories.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Textarea
-                  value={settings.system_prompt}
-                  onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
-                  rows={10}
-                  className="font-mono text-sm"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="prompt">System Prompt</Label>
+                  <Textarea
+                    id="prompt"
+                    value={settings.system_prompt}
+                    onChange={(e) => setSettings({ ...settings, system_prompt: e.target.value })}
+                    className="min-h-[200px] font-mono text-sm"
+                    placeholder="Enter your custom system prompt..."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Customize how the AI should categorize your notes
+                  </p>
+                </div>
+
                 <div className="flex gap-2">
-                  <Button onClick={handleSave} disabled={isSaving}>
+                  <Button
+                    onClick={handleSaveSettings}
+                    disabled={isSaving}
+                    className="flex-1"
+                  >
                     <Save className="h-4 w-4 mr-2" />
-                    {isSaving ? "Saving..." : "Save Settings"}
+                    {isSaving ? 'Saving...' : 'Save Settings'}
                   </Button>
-                  <Button onClick={handleReset} variant="outline">
+                  <Button
+                    onClick={handleResetSettings}
+                    variant="outline"
+                  >
                     <RotateCcw className="h-4 w-4 mr-2" />
                     Reset to Default
                   </Button>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           </TabsContent>
 
+          {/* Categories Tab */}
           <TabsContent value="categories" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Categories</CardTitle>
-                <CardDescription>Manage your existing categories</CardDescription>
-              </CardHeader>
-              <CardContent>
-                {categories.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    No categories yet. Create notes to generate categories automatically.
-                  </p>
-                ) : (
-                  <div className="space-y-2">
-                    {categories.map((category) => (
-                      <div
-                        key={category.id}
-                        className="flex items-center justify-between p-4 border rounded-lg"
-                      >
-                        <div>
-                          <p className="font-medium">{category.name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {category.note_count} {category.note_count === 1 ? "note" : "notes"}
-                          </p>
-                        </div>
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => handleDeleteCategory(category.id)}
-                        >
-                          Delete
-                        </Button>
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <h3 className="text-lg font-semibold mb-4">Your Categories</h3>
+              {categories.length === 0 ? (
+                <p className="text-muted-foreground text-center py-8">
+                  No categories yet. Create your first note to get started!
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {categories.map((category) => (
+                    <div
+                      key={category.id}
+                      className="flex items-center justify-between p-3 rounded-lg border border-border/50 bg-background/50"
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-medium">{category.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {category.note_count} {category.note_count === 1 ? 'note' : 'notes'}
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{category.name}"? This will not delete the notes in this category.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDeleteCategory(category.id, category.name)}
+                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  ))}
+                </div>
+              )}
             </Card>
           </TabsContent>
 
+          {/* How It Works Tab */}
           <TabsContent value="info" className="space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>How AI Categorization Works</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Step 1:</strong> When you create a note (text or voice), the content is sent to the AI.
-                  </AlertDescription>
-                </Alert>
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Step 2:</strong> The AI analyzes your note along with your existing categories.
-                  </AlertDescription>
-                </Alert>
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Step 3:</strong> It either assigns the note to an existing category or creates a new one.
-                  </AlertDescription>
-                </Alert>
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    <strong>Step 4:</strong> Your note is automatically organized in your second brain!
-                  </AlertDescription>
-                </Alert>
-              </CardContent>
-            </Card>
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <div className="flex items-start gap-3 mb-4">
+                <Info className="h-5 w-5 text-primary mt-0.5" />
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">How AI Categorization Works</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Your Second Brain uses AI to automatically organize your notes into meaningful categories.
+                  </p>
+                </div>
+              </div>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>What Data Does the AI See?</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm">The AI receives:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                  <li>Your note content</li>
-                  <li>List of your existing category names</li>
-                  <li>Your custom system prompt (if set)</li>
-                </ul>
-                <p className="text-sm mt-4">The AI does NOT see:</p>
-                <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                  <li>Content of other notes</li>
-                  <li>Any personal information beyond the note</li>
-                </ul>
-              </CardContent>
+              <div className="space-y-4 text-sm">
+                <div>
+                  <h4 className="font-semibold mb-2">The Process:</h4>
+                  <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
+                    <li>You create a note (text or voice)</li>
+                    <li>The AI analyzes your note content</li>
+                    <li>It looks at your existing categories</li>
+                    <li>It either assigns an existing category or creates a new one</li>
+                    <li>Your note is automatically organized</li>
+                  </ol>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">What the AI Sees:</h4>
+                  <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                    <li>Your note content</li>
+                    <li>All your existing category names</li>
+                    <li>The system prompt and rules you've configured</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <h4 className="font-semibold mb-2">Customization:</h4>
+                  <p className="text-muted-foreground">
+                    You can customize the AI's behavior by adjusting the model, temperature, and system prompt in the AI Configuration tab.
+                    This allows you to fine-tune how categories are created and assigned.
+                  </p>
+                </div>
+              </div>
             </Card>
           </TabsContent>
         </Tabs>
       </div>
     </div>
   );
-}
+};
+
+export default Settings;
