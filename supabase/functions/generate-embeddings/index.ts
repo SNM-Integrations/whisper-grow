@@ -21,11 +21,51 @@ serve(async (req) => {
       );
     }
 
+    // Extract user ID from JWT token
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Missing authorization header' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Verify JWT and get user
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication token' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Verify note ownership
+    const { data: note, error: noteError } = await supabase
+      .from('notes')
+      .select('user_id')
+      .eq('id', noteId)
+      .single();
+
+    if (noteError || !note) {
+      return new Response(
+        JSON.stringify({ error: 'Note not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (note.user_id !== user.id) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized access to note' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     console.log('Generating embedding for note:', noteId);
 
