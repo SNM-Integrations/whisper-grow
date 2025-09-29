@@ -97,7 +97,7 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
           {isRecording ? <Square className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
         </Button>
         {isRecording && (
-          <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-50" />
+          <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping opacity-50 pointer-events-none" />
         )}
       </div>
       <p className="text-sm text-muted-foreground">
