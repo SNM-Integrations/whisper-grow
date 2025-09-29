@@ -185,7 +185,8 @@ const GraphView = () => {
       });
 
       // Draw
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Draw links
       links.forEach(link => {
@@ -195,21 +196,30 @@ const GraphView = () => {
           ctx.beginPath();
           ctx.moveTo(source.x, source.y);
           ctx.lineTo(target.x, target.y);
-          ctx.strokeStyle = `hsla(262, 83%, 58%, ${link.strength * 0.5})`;
+          ctx.strokeStyle = `rgba(139, 92, 246, ${link.strength * 0.5})`;
           ctx.lineWidth = 1 + link.strength;
           ctx.stroke();
         }
       });
 
-      // Draw nodes
+      // Draw nodes with labels
       nodes.forEach(node => {
+        // Draw node circle
         ctx.beginPath();
-        ctx.arc(node.x, node.y, 8, 0, Math.PI * 2);
-        ctx.fillStyle = node === selectedNode ? 'hsl(262, 83%, 58%)' : 'hsl(262, 83%, 70%)';
+        ctx.arc(node.x, node.y, 12, 0, Math.PI * 2);
+        ctx.fillStyle = node === selectedNode ? '#8b5cf6' : '#a78bfa';
         ctx.fill();
-        ctx.strokeStyle = 'hsl(0, 0%, 100%)';
+        ctx.strokeStyle = '#ffffff';
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        // Draw label
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const label = node.content.substring(0, 20);
+        ctx.fillText(label, node.x, node.y + 18);
       });
 
       animationRef.current = requestAnimationFrame(simulate);
@@ -241,12 +251,12 @@ const GraphView = () => {
 
   return (
     <div className="h-full flex gap-4">
-      <Card className="flex-1 p-4 relative">
+      <Card className="flex-1 p-0 relative bg-black border-border">
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
           className="w-full h-full cursor-pointer"
-          style={{ minHeight: '600px' }}
+          style={{ minHeight: '600px', backgroundColor: '#000000' }}
         />
         {nodes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
@@ -256,11 +266,11 @@ const GraphView = () => {
       </Card>
 
       {selectedNode && (
-        <Card className="w-80 p-6">
+        <Card className="w-80 p-6 bg-card border-border">
           <h3 className="font-semibold mb-2 text-primary">Selected Note</h3>
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">Category: {selectedNode.category}</p>
-            <p className="text-sm">{selectedNode.content}...</p>
+            <p className="text-sm text-foreground">{selectedNode.content}...</p>
           </div>
         </Card>
       )}

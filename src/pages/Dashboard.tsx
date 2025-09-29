@@ -26,14 +26,14 @@ const Dashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary">
       {/* Header */}
-      <header className="border-b border-border/50 bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+      <header className="border-b border-border bg-card backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-primary to-primary-glow flex items-center justify-center shadow-soft">
-              <Brain className="h-6 w-6 text-white" />
+            <div className="h-10 w-10 rounded-xl bg-primary flex items-center justify-center">
+              <Brain className="h-6 w-6 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold text-foreground">
                 Second Brain
               </h1>
               <p className="text-xs text-muted-foreground">AI-Organized Thoughts</p>
@@ -64,13 +64,13 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8">
-        <Tabs defaultValue="notes" className="w-full">
+        <Tabs defaultValue="map" className="w-full">
           <TabsList className="mb-6">
-            <TabsTrigger value="notes">Notes</TabsTrigger>
-            <TabsTrigger value="graph">Brain Map</TabsTrigger>
+            <TabsTrigger value="map">Brain Map</TabsTrigger>
+            <TabsTrigger value="input">Save Thought</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="notes">
+          <TabsContent value="map" className="mt-0">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               {/* Sidebar */}
               <aside className="lg:col-span-1">
@@ -81,23 +81,25 @@ const Dashboard = () => {
                 />
               </aside>
 
-              {/* Main Area */}
-              <main className="lg:col-span-3 space-y-6">
-                {/* Input Card */}
-                <NoteInput onNoteCreated={handleNoteCreated} />
-
-                {/* Notes Grid */}
-                <NotesGrid
-                  selectedCategory={selectedCategory}
-                  refreshTrigger={refreshTrigger}
-                  onNoteDeleted={handleNoteCreated}
-                />
+              {/* Main Area - Brain Map */}
+              <main className="lg:col-span-3">
+                <GraphView />
               </main>
             </div>
           </TabsContent>
 
-          <TabsContent value="graph">
-            <GraphView />
+          <TabsContent value="input" className="mt-0">
+            <div className="max-w-3xl mx-auto space-y-6">
+              {/* Input Card */}
+              <NoteInput onNoteCreated={handleNoteCreated} />
+
+              {/* Notes Grid */}
+              <NotesGrid
+                selectedCategory={selectedCategory}
+                refreshTrigger={refreshTrigger}
+                onNoteDeleted={handleNoteCreated}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
