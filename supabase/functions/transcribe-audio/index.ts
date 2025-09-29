@@ -62,8 +62,8 @@ serve(async (req) => {
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'whisper-1');
 
-    // Send to OpenAI via Lovable AI gateway
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    // Send to Lovable AI gateway
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/audio/transcriptions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${LOVABLE_API_KEY}`,
