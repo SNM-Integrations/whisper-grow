@@ -25,6 +25,24 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // Fetch user's AI settings
+    const { data: userSettings } = await supabase
+      .from('ai_settings')
+      .select('model, temperature, system_prompt')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    // Use custom settings or defaults
+    const model = userSettings?.model || 'google/gemini-2.5-flash';
+    const temperature = userSettings?.temperature || 0.3;
+    const systemPrompt = userSettings?.system_prompt || `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
+
+Rules:
+1. If the note fits an existing category, return that category name
+2. If no existing category fits well, suggest a new meaningful category name
+3. Category names should be clear, concise, and descriptive (1-3 words)
+4. Return ONLY the category name, nothing else`;
+
     // Fetch existing categories for this user
     const { data: existingCategories } = await supabase
       .from('categories')
@@ -32,6 +50,8 @@ serve(async (req) => {
       .eq('user_id', userId);
 
     const categoryList = existingCategories?.map(c => c.name).join(', ') || 'none yet';
+
+    console.log(`Using AI settings - Model: ${model}, Temperature: ${temperature}`);
 
     // Use AI to categorize the note
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -41,26 +61,20 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
+        model,
         messages: [
           {
             role: 'system',
-            content: `You are a smart categorization assistant for a personal knowledge management system. Your job is to analyze notes and suggest the most appropriate category.
+            content: `${systemPrompt}
 
-Existing categories: ${categoryList}
-
-Rules:
-1. If the note fits an existing category, return that category name
-2. If no existing category fits well, suggest a new meaningful category name
-3. Category names should be clear, concise, and descriptive (1-3 words)
-4. Return ONLY the category name, nothing else`
+Existing categories: ${categoryList}`
           },
           {
             role: 'user',
             content: `Categorize this note: "${noteContent}"`
           }
         ],
-        temperature: 0.3,
+        temperature,
       }),
     });
 
