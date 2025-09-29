@@ -3,9 +3,11 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Brain, Settings } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import NoteInput from "@/components/NoteInput";
 import CategorySidebar from "@/components/CategorySidebar";
 import NotesGrid from "@/components/NotesGrid";
+import GraphView from "@/components/GraphView";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -62,29 +64,42 @@ const Dashboard = () => {
 
       {/* Main Content */}
       <div className="container mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Sidebar */}
-          <aside className="lg:col-span-1">
-            <CategorySidebar
-              selectedCategory={selectedCategory}
-              onCategorySelect={setSelectedCategory}
-              refreshTrigger={refreshTrigger}
-            />
-          </aside>
+        <Tabs defaultValue="notes" className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="notes">Notes</TabsTrigger>
+            <TabsTrigger value="graph">Brain Map</TabsTrigger>
+          </TabsList>
 
-          {/* Main Area */}
-          <main className="lg:col-span-3 space-y-6">
-            {/* Input Card */}
-            <NoteInput onNoteCreated={handleNoteCreated} />
+          <TabsContent value="notes">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+              {/* Sidebar */}
+              <aside className="lg:col-span-1">
+                <CategorySidebar
+                  selectedCategory={selectedCategory}
+                  onCategorySelect={setSelectedCategory}
+                  refreshTrigger={refreshTrigger}
+                />
+              </aside>
 
-            {/* Notes Grid */}
-            <NotesGrid
-              selectedCategory={selectedCategory}
-              refreshTrigger={refreshTrigger}
-              onNoteDeleted={handleNoteCreated}
-            />
-          </main>
-        </div>
+              {/* Main Area */}
+              <main className="lg:col-span-3 space-y-6">
+                {/* Input Card */}
+                <NoteInput onNoteCreated={handleNoteCreated} />
+
+                {/* Notes Grid */}
+                <NotesGrid
+                  selectedCategory={selectedCategory}
+                  refreshTrigger={refreshTrigger}
+                  onNoteDeleted={handleNoteCreated}
+                />
+              </main>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="graph">
+            <GraphView />
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

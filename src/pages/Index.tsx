@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import Dashboard from "./Dashboard";
+import Home from "./Home";
 
 const Index = () => {
   const [session, setSession] = useState<any>(null);
@@ -44,8 +44,8 @@ const Index = () => {
     );
   }
 
-  // Only render Dashboard if we have a session
-  return session ? <Dashboard /> : null;
+  // Only render Home if we have a session
+  return session ? <Home /> : null;
 };
 
 export default Index;

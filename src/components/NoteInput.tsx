@@ -50,11 +50,37 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
 
       if (noteError) throw noteError;
 
-      // Generate embedding for the note (fire and forget)
+      // Generate embedding and auto-link (fire and forget)
       if (newNote) {
-        supabase.functions.invoke('generate-embeddings', {
-          body: { noteId: newNote.id, content: noteText }
-        }).catch(err => console.error('Embedding generation failed:', err));
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Generate embeddings
+        const embeddingResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ noteId: newNote.id }),
+          }
+        );
+
+        // Auto-link notes if embedding was successful
+        if (embeddingResponse.ok) {
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-link-notes`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ noteId: newNote.id }),
+            }
+          ).catch(err => console.error('Auto-linking failed:', err));
+        }
       }
 
       toast.success(`Note added to ${categoryData.categoryName}`);
@@ -106,11 +132,37 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
 
       if (noteError) throw noteError;
 
-      // Generate embedding for the note (fire and forget)
+      // Generate embedding and auto-link (fire and forget)
       if (newNote) {
-        supabase.functions.invoke('generate-embeddings', {
-          body: { noteId: newNote.id, content: text }
-        }).catch(err => console.error('Embedding generation failed:', err));
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        // Generate embeddings
+        const embeddingResponse = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ noteId: newNote.id }),
+          }
+        );
+
+        // Auto-link notes if embedding was successful
+        if (embeddingResponse.ok) {
+          fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-link-notes`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${session?.access_token}`,
+              },
+              body: JSON.stringify({ noteId: newNote.id }),
+            }
+          ).catch(err => console.error('Auto-linking failed:', err));
+        }
       }
 
       toast.success(`Note added to ${categoryData.categoryName}`);
