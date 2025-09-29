@@ -38,15 +38,24 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
       if (categoryError) throw categoryError;
 
       // Create the note
-      const { error: noteError } = await supabase
+      const { data: newNote, error: noteError } = await supabase
         .from('notes')
         .insert({
           content: noteText,
           category_id: categoryData.categoryId,
           user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (noteError) throw noteError;
+
+      // Generate embedding for the note (fire and forget)
+      if (newNote) {
+        supabase.functions.invoke('generate-embeddings', {
+          body: { noteId: newNote.id, content: noteText }
+        }).catch(err => console.error('Embedding generation failed:', err));
+      }
 
       toast.success(`Note added to ${categoryData.categoryName}`);
       setNoteText("");
@@ -85,15 +94,24 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
       if (categoryError) throw categoryError;
 
       // Create the note
-      const { error: noteError } = await supabase
+      const { data: newNote, error: noteError } = await supabase
         .from('notes')
         .insert({
           content: text,
           category_id: categoryData.categoryId,
           user_id: user.id
-        });
+        })
+        .select()
+        .single();
 
       if (noteError) throw noteError;
+
+      // Generate embedding for the note (fire and forget)
+      if (newNote) {
+        supabase.functions.invoke('generate-embeddings', {
+          body: { noteId: newNote.id, content: text }
+        }).catch(err => console.error('Embedding generation failed:', err));
+      }
 
       toast.success(`Note added to ${categoryData.categoryName}`);
       setNoteText("");

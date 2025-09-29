@@ -1,0 +1,89 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+serve(async (req) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const { noteId, content } = await req.json();
+
+    if (!noteId || !content) {
+      return new Response(
+        JSON.stringify({ error: 'noteId and content are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    console.log('Generating embedding for note:', noteId);
+
+    // Generate embedding using Lovable AI
+    const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: content,
+        model: 'text-embedding-3-small',
+      }),
+    });
+
+    if (!embeddingResponse.ok) {
+      const errorText = await embeddingResponse.text();
+      console.error('Lovable AI embedding error:', embeddingResponse.status, errorText);
+      return new Response(
+        JSON.stringify({ error: 'Failed to generate embedding' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const embeddingData = await embeddingResponse.json();
+    const embedding = embeddingData.data[0].embedding;
+
+    console.log('Embedding generated, length:', embedding.length);
+
+    // Store embedding in database
+    const { error: insertError } = await supabase
+      .from('note_embeddings')
+      .upsert({
+        note_id: noteId,
+        embedding: embedding,
+      });
+
+    if (insertError) {
+      console.error('Error storing embedding:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to store embedding' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Embedding stored successfully');
+
+    return new Response(
+      JSON.stringify({ success: true, noteId }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error('Error in generate-embeddings function:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

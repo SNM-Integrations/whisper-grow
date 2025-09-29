@@ -51,9 +51,46 @@ Rules:
 
     const categoryList = existingCategories?.map(c => c.name).join(', ') || 'none yet';
 
+    // Generate embedding for the new note first
+    const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        input: noteContent,
+        model: 'text-embedding-3-small',
+      }),
+    });
+
+    let similarNotesContext = '';
+    
+    if (embeddingResponse.ok) {
+      const embeddingData = await embeddingResponse.json();
+      const embedding = embeddingData.data[0].embedding;
+
+      // Find similar notes using vector similarity
+      const { data: similarNotes } = await supabase.rpc('match_notes', {
+        query_embedding: embedding,
+        match_threshold: 0.7,
+        match_count: 5,
+        user_id_param: userId,
+      });
+
+      if (similarNotes && similarNotes.length > 0) {
+        const noteContexts = similarNotes
+          .map((note: any) => `- ${note.content.substring(0, 150)}... (Category: ${note.category_name || 'Uncategorized'})`)
+          .join('\n');
+        
+        similarNotesContext = `\n\nRelevant past notes from the user:\n${noteContexts}`;
+        console.log(`Found ${similarNotes.length} similar notes for context`);
+      }
+    }
+
     console.log(`Using AI settings - Model: ${model}, Temperature: ${temperature}`);
 
-    // Use AI to categorize the note
+    // Use AI to categorize the note with RAG context
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -67,7 +104,7 @@ Rules:
             role: 'system',
             content: `${systemPrompt}
 
-Existing categories: ${categoryList}`
+Existing categories: ${categoryList}${similarNotesContext}`
           },
           {
             role: 'user',

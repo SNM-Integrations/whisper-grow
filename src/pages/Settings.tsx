@@ -24,6 +24,12 @@ interface Category {
   note_count?: number;
 }
 
+interface AIKnowledgeStats {
+  totalNotes: number;
+  embeddingsCount: number;
+  topCategories: { name: string; count: number }[];
+}
+
 const DEFAULT_SETTINGS: AISettings = {
   model: 'google/gemini-2.5-flash',
   temperature: 0.3,
@@ -42,10 +48,16 @@ const Settings = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [knowledgeStats, setKnowledgeStats] = useState<AIKnowledgeStats>({
+    totalNotes: 0,
+    embeddingsCount: 0,
+    topCategories: []
+  });
 
   useEffect(() => {
     fetchSettings();
     fetchCategories();
+    fetchKnowledgeStats();
   }, []);
 
   const fetchSettings = async () => {
@@ -102,7 +114,91 @@ const Settings = () => {
       setCategories(categoriesWithCount);
     } catch (error) {
       console.error('Error fetching categories:', error);
-      toast.error('Failed to load categories');
+    }
+  };
+
+  const fetchKnowledgeStats = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get total notes count
+      const { count: notesCount } = await supabase
+        .from('notes')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      // Get embeddings count by querying notes that have embeddings
+      const { data: notesWithEmbeddings } = await supabase
+        .from('notes')
+        .select('id, note_embeddings!inner(id)')
+        .eq('user_id', user.id);
+      
+      const embeddingsCount = notesWithEmbeddings?.length || 0;
+
+      // Get top categories
+      const { data: topCats } = await supabase
+        .from('categories')
+        .select(`
+          name,
+          notes:notes(count)
+        `)
+        .eq('user_id', user.id)
+        .order('notes(count)', { ascending: false })
+        .limit(5);
+
+      const topCategories = topCats?.map(cat => ({
+        name: cat.name,
+        count: cat.notes?.[0]?.count || 0
+      })).filter(cat => cat.count > 0) || [];
+
+      setKnowledgeStats({
+        totalNotes: notesCount || 0,
+        embeddingsCount: embeddingsCount || 0,
+        topCategories
+      });
+    } catch (error) {
+      console.error('Error fetching knowledge stats:', error);
+    }
+  };
+
+  const handleBackfillEmbeddings = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      toast.info('Starting to backfill embeddings...');
+
+      // Get all notes without embeddings
+      const { data: notesWithoutEmbeddings } = await supabase
+        .from('notes')
+        .select('id, content')
+        .eq('user_id', user.id)
+        .not('id', 'in', `(SELECT note_id FROM note_embeddings)`);
+
+      if (!notesWithoutEmbeddings || notesWithoutEmbeddings.length === 0) {
+        toast.success('All notes already have embeddings!');
+        return;
+      }
+
+      // Generate embeddings for each note
+      let processed = 0;
+      for (const note of notesWithoutEmbeddings) {
+        await supabase.functions.invoke('generate-embeddings', {
+          body: { noteId: note.id, content: note.content }
+        });
+        processed++;
+        
+        if (processed % 5 === 0) {
+          toast.info(`Processed ${processed}/${notesWithoutEmbeddings.length} notes`);
+        }
+      }
+
+      toast.success(`Successfully generated embeddings for ${processed} notes!`);
+      fetchKnowledgeStats();
+    } catch (error) {
+      console.error('Error backfilling embeddings:', error);
+      toast.error('Failed to backfill embeddings');
     }
   };
 
@@ -188,8 +284,9 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="ai" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="ai">AI Configuration</TabsTrigger>
+            <TabsTrigger value="knowledge">AI Knowledge</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
             <TabsTrigger value="info">How It Works</TabsTrigger>
           </TabsList>
@@ -266,6 +363,96 @@ const Settings = () => {
                     Reset to Default
                   </Button>
                 </div>
+              </div>
+            </Card>
+          </TabsContent>
+
+          {/* AI Knowledge Tab */}
+          <TabsContent value="knowledge" className="space-y-6">
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <h3 className="text-lg font-semibold mb-6">AI Learning Progress</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <Card className="p-4 bg-primary/5 border-primary/20">
+                  <div className="text-sm text-muted-foreground mb-1">Total Notes</div>
+                  <div className="text-3xl font-bold text-primary">{knowledgeStats.totalNotes}</div>
+                </Card>
+                
+                <Card className="p-4 bg-secondary/5 border-secondary/20">
+                  <div className="text-sm text-muted-foreground mb-1">Notes with AI Learning</div>
+                  <div className="text-3xl font-bold text-secondary">{knowledgeStats.embeddingsCount}</div>
+                </Card>
+                
+                <Card className="p-4 bg-accent/5 border-accent/20">
+                  <div className="text-sm text-muted-foreground mb-1">Learning Coverage</div>
+                  <div className="text-3xl font-bold text-accent">
+                    {knowledgeStats.totalNotes > 0 
+                      ? Math.round((knowledgeStats.embeddingsCount / knowledgeStats.totalNotes) * 100)
+                      : 0}%
+                  </div>
+                </Card>
+              </div>
+
+              {knowledgeStats.embeddingsCount < knowledgeStats.totalNotes && (
+                <div className="mb-6 p-4 bg-muted/50 rounded-lg border border-border/50">
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium mb-1">Improve AI Intelligence</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Some of your notes haven't been analyzed yet. Click below to enable AI learning for all your notes.
+                      </p>
+                      <Button onClick={handleBackfillEmbeddings} variant="outline" size="sm">
+                        Analyze All Notes
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {knowledgeStats.topCategories.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-3">Your Top Interests</h4>
+                  <div className="space-y-2">
+                    {knowledgeStats.topCategories.map((cat, index) => (
+                      <div key={cat.name} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary font-semibold text-sm">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="font-medium">{cat.name}</div>
+                          <div className="text-sm text-muted-foreground">{cat.count} notes</div>
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {knowledgeStats.totalNotes > 0 
+                            ? Math.round((cat.count / knowledgeStats.totalNotes) * 100)
+                            : 0}%
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {knowledgeStats.totalNotes === 0 && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <p>Start adding notes to see AI learning progress!</p>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <h3 className="text-lg font-semibold mb-3">How AI Learning Works</h3>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                <p>
+                  <strong className="text-foreground">Smart Categorization:</strong> When you create a note, the AI analyzes similar notes you've written before to suggest the most relevant category.
+                </p>
+                <p>
+                  <strong className="text-foreground">Context Awareness:</strong> The more notes you add, the better the AI understands your interests and communication style.
+                </p>
+                <p>
+                  <strong className="text-foreground">Privacy First:</strong> All your data stays in your secure database. The AI never stores or shares your notes.
+                </p>
               </div>
             </Card>
           </TabsContent>
