@@ -59,9 +59,51 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
     }
   };
 
-  const handleTranscriptComplete = (text: string) => {
+  const handleTranscriptComplete = async (text: string) => {
     setNoteText(text);
     setInputMode("text");
+    
+    // Automatically save the transcribed note
+    if (!text.trim()) {
+      toast.error("No text transcribed");
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get AI categorization
+      const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
+        'categorize-note',
+        {
+          body: { noteContent: text, userId: user.id }
+        }
+      );
+
+      if (categoryError) throw categoryError;
+
+      // Create the note
+      const { error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          content: text,
+          category_id: categoryData.categoryId,
+          user_id: user.id
+        });
+
+      if (noteError) throw noteError;
+
+      toast.success(`Note added to ${categoryData.categoryName}`);
+      setNoteText("");
+      onNoteCreated();
+    } catch (error) {
+      console.error("Error creating note:", error);
+      toast.error("Failed to create note");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
