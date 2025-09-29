@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import Dashboard from "./Dashboard";
-import Auth from "./Auth";
 
 const Index = () => {
   const [session, setSession] = useState<any>(null);
@@ -13,16 +12,26 @@ const Index = () => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setLoading(false);
+      
+      // Redirect to auth if no session
+      if (!session) {
+        navigate("/auth");
+      }
     });
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      
+      // Redirect based on session state
+      if (!session) {
+        navigate("/auth");
+      }
     });
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [navigate]);
 
   if (loading) {
     return (
@@ -35,7 +44,8 @@ const Index = () => {
     );
   }
 
-  return session ? <Dashboard /> : <Auth />;
+  // Only render Dashboard if we have a session
+  return session ? <Dashboard /> : null;
 };
 
 export default Index;
