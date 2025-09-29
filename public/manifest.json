@@ -1,0 +1,34 @@
+{
+  "name": "Second Brain - AI Notes",
+  "short_name": "Second Brain",
+  "description": "Your personal second brain with AI-powered categorization. Capture thoughts via voice or text.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0A",
+  "theme_color": "#9b87f5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/placeholder.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/placeholder.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "shortcuts": [
+    {
+      "name": "New Voice Note",
+      "short_name": "Voice Note",
+      "description": "Record a new voice note",
+      "url": "/?mode=voice",
+      "icons": [{ "src": "/placeholder.svg", "sizes": "96x96" }]
+    }
+  ]
+}
