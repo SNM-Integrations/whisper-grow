@@ -11,12 +11,14 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  cacheDir: "node_modules/.vite-no-radix", // bust old prebundle cache aggressively
   plugins: [
     react(),
     // Temporarily disabled to resolve TooltipProvider invalid hook crash; re-enable after fix
     // mode === 'development' && componentTagger(),
   ].filter(Boolean),
   optimizeDeps: {
+    disabled: true, // fully disable prebundling to avoid stale @radix-ui/react-tooltip chunks
     exclude: [
       '@radix-ui/react-tooltip',
       '@radix-ui/react-toast',
