@@ -78,7 +78,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         input: content,
-        model: 'text-embedding-3-small',
+        model: 'openai/gpt-5-mini',
       }),
     });
 

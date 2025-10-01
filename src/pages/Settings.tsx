@@ -192,18 +192,31 @@ const Settings = () => {
 
       // Generate embeddings for each note
       let processed = 0;
+      let success = 0;
+      let failed = 0;
       for (const note of notesWithoutEmbeddings) {
-        await supabase.functions.invoke('generate-embeddings', {
+        const { data, error } = await supabase.functions.invoke('generate-embeddings', {
           body: { noteId: note.id, content: note.content }
         });
         processed++;
+
+        if (error || !data?.success) {
+          failed++;
+          console.error('Embedding generation failed for note', note.id, error || data);
+        } else {
+          success++;
+        }
         
         if (processed % 5 === 0) {
-          toast.info(`Processed ${processed}/${notesWithoutEmbeddings.length} notes`);
+          toast.info(`Processed ${processed}/${notesWithoutEmbeddings.length} notes (${success} ok, ${failed} failed)`);
         }
       }
 
-      toast.success(`Successfully generated embeddings for ${processed} notes!`);
+      if (failed > 0) {
+        toast.error(`Embeddings completed: ${success} succeeded, ${failed} failed`);
+      } else {
+        toast.success(`Successfully generated embeddings for ${success} notes!`);
+      }
       fetchKnowledgeStats();
     } catch (error) {
       console.error('Error backfilling embeddings:', error);
