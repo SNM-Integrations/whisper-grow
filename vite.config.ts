@@ -19,6 +19,7 @@ export default defineConfig(({ mode }) => ({
   optimizeDeps: {
     exclude: [
       '@radix-ui/react-tooltip',
+      '@radix-ui/react-toast',
       'react',
       'react-dom',
       'react/jsx-runtime',
@@ -26,10 +27,11 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-      "@radix-ui/react-tooltip": path.resolve(__dirname, "./src/shims/radix-tooltip-stub-alt.tsx"),
-    },
+    alias: [
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+      { find: /^@radix-ui\/react-tooltip(\/.*)?$/, replacement: path.resolve(__dirname, './src/shims/radix-tooltip-stub-alt.tsx') },
+      { find: /^@radix-ui\/react-toast(\/.*)?$/, replacement: path.resolve(__dirname, './src/shims/radix-noop-react-toast.tsx') },
+    ],
     dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
   },
 }));
