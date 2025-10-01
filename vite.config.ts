@@ -13,7 +13,8 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    mode === 'development' && componentTagger(),
+    // Temporarily disabled to resolve TooltipProvider invalid hook crash; re-enable after fix
+    // mode === 'development' && componentTagger(),
   ].filter(Boolean),
   optimizeDeps: {
     exclude: [
