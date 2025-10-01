@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, Type, Send } from "lucide-react";
+import { Mic, Type, Send, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import VoiceRecorder from "./VoiceRecorder";
+import AudioUpload from "./AudioUpload";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,7 +13,7 @@ interface NoteInputProps {
 }
 
 const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
-  const [inputMode, setInputMode] = useState<"text" | "voice">("text");
+  const [inputMode, setInputMode] = useState<"text" | "voice" | "upload">("text");
   const [noteText, setNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -197,6 +198,15 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
           <Mic className="h-4 w-4 mr-2" />
           Voice
         </Button>
+        <Button
+          variant={inputMode === "upload" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setInputMode("upload")}
+          className="flex-1"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Upload
+        </Button>
       </div>
 
       {inputMode === "text" ? (
@@ -216,9 +226,13 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
             {isSubmitting ? "Saving..." : "Save Thought"}
           </Button>
         </div>
-      ) : (
+      ) : inputMode === "voice" ? (
         <div className="py-8">
           <VoiceRecorder onTranscriptComplete={handleTranscriptComplete} />
+        </div>
+      ) : (
+        <div className="py-8">
+          <AudioUpload onTranscriptComplete={handleTranscriptComplete} />
         </div>
       )}
     </Card>

@@ -11,8 +11,11 @@ interface VoiceRecorderProps {
 const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [recordingTime, setRecordingTime] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const maxRecordingTime = 30 * 60; // 30 minutes in seconds
 
   const startRecording = async () => {
     try {
@@ -20,6 +23,7 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
+      setRecordingTime(0);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
@@ -31,11 +35,24 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
         await processAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
+        if (timerRef.current) clearInterval(timerRef.current);
       };
+
+      // Start timer
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+          if (prev >= maxRecordingTime) {
+            stopRecording();
+            toast.info("30-minute recording limit reached");
+            return prev;
+          }
+          return prev + 1;
+        });
+      }, 1000);
 
       mediaRecorder.start();
       setIsRecording(true);
-      toast.success("Recording started");
+      toast.success("Recording started (max 30 minutes)");
     } catch (error) {
       console.error("Error starting recording:", error);
       toast.error("Failed to start recording");
@@ -46,7 +63,14 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      if (timerRef.current) clearInterval(timerRef.current);
     }
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const processAudio = async (audioBlob: Blob) => {
@@ -101,7 +125,11 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
         )}
       </div>
       <p className="text-sm text-muted-foreground">
-        {isRecording ? "Recording... Click to stop" : isProcessing ? "Processing..." : "Click to record"}
+        {isRecording 
+          ? `Recording: ${formatTime(recordingTime)} / 30:00` 
+          : isProcessing 
+          ? "Processing..." 
+          : "Click to record (max 30 min)"}
       </p>
     </div>
   );
