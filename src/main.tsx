@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "@/debug/early-react-check";
 
 // Enable dark mode by default
 document.documentElement.classList.add('dark');
