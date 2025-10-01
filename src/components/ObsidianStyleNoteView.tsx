@@ -14,9 +14,15 @@ interface Note {
   formatted_content: string | null;
   created_at: string;
   note_type: string;
+  parent_note_id: string | null;
   categories: {
     name: string;
   } | null;
+}
+
+interface ParentNote {
+  content: string;
+  formatted_content: string | null;
 }
 
 interface ObsidianStyleNoteViewProps {
@@ -30,10 +36,15 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
   const [notes, setNotes] = useState<Note[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [parentNote, setParentNote] = useState<ParentNote | null>(null);
 
   useEffect(() => {
     fetchNotes();
   }, [categoryId]);
+
+  useEffect(() => {
+    fetchParentNote();
+  }, [currentIndex, notes]);
 
   const fetchNotes = async () => {
     setLoading(true);
@@ -58,6 +69,7 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
           formatted_content,
           created_at,
           note_type,
+          parent_note_id,
           categories (name)
         `)
         .eq('user_id', user.id)
@@ -72,6 +84,28 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
       toast.error("Failed to load notes");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchParentNote = async () => {
+    const currentNote = notes[currentIndex];
+    if (!currentNote?.parent_note_id) {
+      setParentNote(null);
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('notes')
+        .select('content, formatted_content')
+        .eq('id', currentNote.parent_note_id)
+        .single();
+
+      if (error) throw error;
+      setParentNote(data);
+    } catch (error) {
+      console.error("Error fetching parent note:", error);
+      setParentNote(null);
     }
   };
 
@@ -195,9 +229,29 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
             </div>
 
             <div className="prose prose-lg dark:prose-invert max-w-none">
-              <div className="text-lg leading-relaxed whitespace-pre-wrap">
-                {currentNote.formatted_content || currentNote.content}
-              </div>
+              {currentNote.note_type === 'extracted' && (
+                <div className="mb-8">
+                  <h3 className="text-xl font-semibold mb-4">Extracted Topic</h3>
+                  <div className="text-lg leading-relaxed whitespace-pre-wrap mb-8 p-4 bg-accent/10 rounded-lg border-l-4 border-primary">
+                    {currentNote.formatted_content || currentNote.content}
+                  </div>
+                  
+                  {parentNote && (
+                    <>
+                      <h3 className="text-xl font-semibold mb-4 mt-12">Full Original Transcript</h3>
+                      <div className="text-base leading-relaxed whitespace-pre-wrap text-muted-foreground">
+                        {parentNote.formatted_content || parentNote.content}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              
+              {currentNote.note_type !== 'extracted' && (
+                <div className="text-lg leading-relaxed whitespace-pre-wrap">
+                  {currentNote.formatted_content || currentNote.content}
+                </div>
+              )}
             </div>
           </Card>
         </div>
