@@ -13,6 +13,7 @@ const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
+    <ReactRuntimeCheck />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Index />} />
