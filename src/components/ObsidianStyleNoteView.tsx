@@ -97,7 +97,7 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-background z-50 flex items-center justify-center">
+      <div className="flex items-center justify-center p-8">
         <p className="text-muted-foreground">Loading notes...</p>
       </div>
     );
@@ -105,21 +105,20 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
 
   if (notes.length === 0) {
     return (
-      <div className="fixed inset-0 bg-background z-50 flex flex-col items-center justify-center">
+      <div className="flex flex-col items-center justify-center p-8">
         <p className="text-muted-foreground mb-4">No notes in this category yet</p>
         <Button onClick={onClose} variant="outline">
-          <X className="h-4 w-4 mr-2" />
-          Close
+          Back to Graph
         </Button>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-background z-50 flex flex-col">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="border-b border-border bg-card/50 backdrop-blur px-6 py-4">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
+        <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -128,7 +127,7 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
               className="gap-2"
             >
               <X className="h-4 w-4" />
-              Close
+              Back to Graph
             </Button>
             <div className="h-4 w-px bg-border" />
             <Badge variant="secondary" className="text-sm">
@@ -179,7 +178,7 @@ const ObsidianStyleNoteView = ({ categoryId, categoryName, onClose, onNoteDelete
 
       {/* Content */}
       <ScrollArea className="flex-1">
-        <div className="max-w-5xl mx-auto px-6 py-12">
+        <div className="px-6 py-12">
           <Card className="p-12 bg-card border-border shadow-lg">
             <div className="mb-8">
               <div className="flex items-center gap-2 mb-4">

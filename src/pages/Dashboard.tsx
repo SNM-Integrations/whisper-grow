@@ -44,15 +44,6 @@ const Dashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary">
-      {showObsidianView && selectedCategory && (
-        <ObsidianStyleNoteView
-          categoryId={selectedCategory}
-          categoryName={selectedCategoryName}
-          onClose={handleCloseObsidianView}
-          onNoteDeleted={handleNoteCreated}
-        />
-      )}
-
       {/* Header */}
       <header className="border-b border-border bg-card backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
@@ -111,9 +102,20 @@ const Dashboard = () => {
 
               {/* Main Area */}
               <main className="lg:col-span-3">
-                <Card className="p-0">
-                  <GraphView />
-                </Card>
+                {showObsidianView && selectedCategory ? (
+                  <Card className="p-0 h-full">
+                    <ObsidianStyleNoteView
+                      categoryId={selectedCategory}
+                      categoryName={selectedCategoryName}
+                      onClose={handleCloseObsidianView}
+                      onNoteDeleted={handleNoteCreated}
+                    />
+                  </Card>
+                ) : (
+                  <Card className="p-0">
+                    <GraphView />
+                  </Card>
+                )}
               </main>
             </div>
           </TabsContent>
