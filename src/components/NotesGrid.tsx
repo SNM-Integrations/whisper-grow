@@ -10,7 +10,9 @@ import { format } from "date-fns";
 interface Note {
   id: string;
   content: string;
+  formatted_content: string | null;
   created_at: string;
+  note_type: string;
   categories: {
     name: string;
   } | null;
@@ -38,10 +40,13 @@ const NotesGrid = ({ selectedCategory, refreshTrigger, onNoteDeleted }: NotesGri
       .select(`
         id,
         content,
+        formatted_content,
+        note_type,
         created_at,
         categories (name)
       `)
       .eq('user_id', user.id)
+      .eq('note_type', 'original')
       .order('created_at', { ascending: false });
 
     if (selectedCategory) {
@@ -103,7 +108,9 @@ const NotesGrid = ({ selectedCategory, refreshTrigger, onNoteDeleted }: NotesGri
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
-          <p className="text-sm leading-relaxed mb-3">{note.content}</p>
+          <p className="text-sm leading-relaxed mb-3">
+            {note.formatted_content || note.content}
+          </p>
           <p className="text-xs text-muted-foreground">
             {format(new Date(note.created_at), "MMM d, yyyy 'at' h:mm a")}
           </p>

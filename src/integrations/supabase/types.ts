@@ -94,21 +94,32 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_id: string | null
           user_id: string
         }
         Insert: {
           created_at?: string
           id?: string
           name: string
+          parent_id?: string | null
           user_id: string
         }
         Update: {
           created_at?: string
           id?: string
           name?: string
+          parent_id?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       google_auth_tokens: {
         Row: {
@@ -214,7 +225,10 @@ export type Database = {
           category_id: string | null
           content: string
           created_at: string
+          formatted_content: string | null
           id: string
+          note_type: Database["public"]["Enums"]["note_type"]
+          parent_note_id: string | null
           transcript: string | null
           updated_at: string
           user_id: string
@@ -224,7 +238,10 @@ export type Database = {
           category_id?: string | null
           content: string
           created_at?: string
+          formatted_content?: string | null
           id?: string
+          note_type?: Database["public"]["Enums"]["note_type"]
+          parent_note_id?: string | null
           transcript?: string | null
           updated_at?: string
           user_id: string
@@ -234,7 +251,10 @@ export type Database = {
           category_id?: string | null
           content?: string
           created_at?: string
+          formatted_content?: string | null
           id?: string
+          note_type?: Database["public"]["Enums"]["note_type"]
+          parent_note_id?: string | null
           transcript?: string | null
           updated_at?: string
           user_id?: string
@@ -245,6 +265,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_parent_note_id_fkey"
+            columns: ["parent_note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
             referencedColumns: ["id"]
           },
         ]
@@ -413,7 +440,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      note_type: "original" | "extracted"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -540,6 +567,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      note_type: ["original", "extracted"],
+    },
   },
 } as const

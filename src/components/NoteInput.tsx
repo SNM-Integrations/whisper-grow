@@ -96,10 +96,6 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
   };
 
   const handleTranscriptComplete = async (text: string) => {
-    setNoteText(text);
-    setInputMode("text");
-    
-    // Automatically save the transcribed note
     if (!text.trim()) {
       toast.error("No text transcribed");
       return;
@@ -109,64 +105,105 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
+      const { data: { session } } = await supabase.auth.getSession();
 
-      // Get AI categorization
+      // Step 1: Format the transcript
+      const { data: formatData, error: formatError } = await supabase.functions.invoke(
+        'format-transcript',
+        { body: { rawTranscript: text } }
+      );
+
+      if (formatError) throw formatError;
+      const formattedText = formatData.formattedText || text;
+
+      // Step 2: Extract topics from formatted text
+      const { data: topicsData, error: topicsError } = await supabase.functions.invoke(
+        'extract-topics',
+        { body: { noteContent: formattedText } }
+      );
+
+      if (topicsError) throw topicsError;
+      const extractedTopics = topicsData.topics || [];
+
+      // Step 3a: Create original note with full transcript
       const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
         'categorize-note',
-        {
-          body: { noteContent: text, userId: user.id }
-        }
+        { body: { noteContent: formattedText, userId: user.id } }
       );
 
       if (categoryError) throw categoryError;
 
-      // Create the note
-      const { data: newNote, error: noteError } = await supabase
+      const { data: originalNote, error: originalError } = await supabase
         .from('notes')
         .insert({
           content: text,
+          formatted_content: formattedText,
           category_id: categoryData.categoryId,
-          user_id: user.id
+          user_id: user.id,
+          note_type: 'original'
         })
         .select()
         .single();
 
-      if (noteError) throw noteError;
+      if (originalError) throw originalError;
 
-      // Generate embedding and auto-link (fire and forget)
-      if (newNote) {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        // Generate embeddings
-        const embeddingResponse = await fetch(
-          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${session?.access_token}`,
-            },
-            body: JSON.stringify({ noteId: newNote.id }),
-          }
-        );
-
-        // Auto-link notes if embedding was successful
-        if (embeddingResponse.ok) {
-          fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-link-notes`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${session?.access_token}`,
-              },
-              body: JSON.stringify({ noteId: newNote.id }),
-            }
-          ).catch(err => console.error('Auto-linking failed:', err));
+      // Generate embedding for original note
+      fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ noteId: originalNote.id }),
         }
+      ).catch(err => console.error('Embedding failed:', err));
+
+      // Step 3b: Create extracted topic notes if any exist
+      if (extractedTopics.length > 0) {
+        for (const topic of extractedTopics) {
+          const { data: topicCategory } = await supabase.functions.invoke(
+            'categorize-note',
+            { body: { noteContent: topic.excerpt, userId: user.id } }
+          );
+
+          if (topicCategory) {
+            const { data: topicNote } = await supabase
+              .from('notes')
+              .insert({
+                content: topic.excerpt,
+                formatted_content: topic.excerpt,
+                category_id: topicCategory.categoryId,
+                user_id: user.id,
+                note_type: 'extracted',
+                parent_note_id: originalNote.id
+              })
+              .select()
+              .single();
+
+            if (topicNote) {
+              // Generate embedding for each topic
+              fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${session?.access_token}`,
+                  },
+                  body: JSON.stringify({ noteId: topicNote.id }),
+                }
+              ).catch(err => console.error('Embedding failed:', err));
+            }
+          }
+        }
+
+        toast.success(`Note saved with ${extractedTopics.length} topic${extractedTopics.length > 1 ? 's' : ''} extracted`);
+      } else {
+        toast.success(`Note added to ${categoryData.categoryName}`);
       }
 
-      toast.success(`Note added to ${categoryData.categoryName}`);
       setNoteText("");
       onNoteCreated();
     } catch (error) {

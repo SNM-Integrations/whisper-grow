@@ -41,6 +41,13 @@ CONTEXT UNDERSTANDING:
 - Use this context to understand the user's categorization preferences and knowledge structure
 - The similar notes show what the user considers related content
 
+HIERARCHICAL CATEGORIZATION:
+- You can suggest hierarchical categories using " > " separator
+- Format: "Parent Category > Child Category"
+- Examples: "Personal Development > Morning Routines", "Work > Project Ideas", "Health > Fitness Goals"
+- Use hierarchy when the note fits a specific subcategory of a broader topic
+- Keep hierarchy to max 2 levels (Parent > Child)
+
 CATEGORIZATION PRINCIPLES:
 
 1. CONSISTENCY FIRST
@@ -53,7 +60,7 @@ CATEGORIZATION PRINCIPLES:
    - Focus on the note's primary topic or intent, not just keywords
    - Consider the broader domain or field the note belongs to
    - Match based on conceptual similarity, not surface-level text matching
-   - A note about "React hooks" belongs in "React" or "Frontend", not necessarily "Hooks"
+   - A note about "React hooks" belongs in "React" or "Frontend > React", not "Hooks"
 
 3. WHEN TO CREATE NEW CATEGORIES
    Only create a new category when:
@@ -63,7 +70,7 @@ CATEGORIZATION PRINCIPLES:
    - Similar past notes show this is a recurring theme without a category
 
 4. CATEGORY NAMING BEST PRACTICES
-   - Use 1-3 words maximum
+   - Use 1-3 words maximum per level
    - Choose broad, reusable names over hyper-specific ones
    - Prefer established domain terminology (e.g., "Machine Learning" over "AI Stuff")
    - Use singular form unless the category is inherently plural (e.g., "Recipe" not "Recipes")
@@ -73,18 +80,20 @@ CATEGORIZATION PRINCIPLES:
 5. DECISION-MAKING HIERARCHY
    a) If similar notes exist with categories → strongly consider those categories
    b) If multiple existing categories fit → choose the most specific relevant one
-   c) If no existing category fits well → evaluate if this is a recurring topic
-   d) If truly novel and likely recurring → create a clear, reusable category name
+   c) If topic fits as subcategory of existing category → use "Parent > Child" format
+   d) If no existing category fits well → evaluate if this is a recurring topic
+   e) If truly novel and likely recurring → create a clear, reusable category name
 
 CRITICAL OUTPUT REQUIREMENT:
-- Return ONLY the category name
+- Return ONLY the category name (or hierarchical path)
 - No explanations, no punctuation, no additional text
 - Just the category name exactly as it should appear
+- Use " > " to separate parent and child categories
 
 Examples of good categorization thinking:
-- Note about "setting up Docker containers" → "DevOps" (if exists) rather than creating "Docker" or "Containers"
-- Note about "morning routine ideas" → "Personal Development" (if exists) rather than "Routines" or "Mornings"
-- Note about "fixing kitchen sink" → "Home Improvement" (if exists) rather than "Repairs" or "Kitchen"
+- Note about "setting up Docker containers" → "DevOps" (if exists) or "DevOps > Docker" (if DevOps exists)
+- Note about "morning routine ideas" → "Personal Development > Morning Routines" (if Personal Development exists)
+- Note about "fixing kitchen sink" → "Home Improvement > Kitchen" (if Home Improvement exists)
 - Note about a specific book insight → "Books" or "Reading" rather than the book's title`
 };
 
