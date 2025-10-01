@@ -13,23 +13,6 @@ export default defineConfig(({ mode }) => ({
   },
   cacheDir: "node_modules/.vite-no-radix", // bust old prebundle cache aggressively
   plugins: [
-    // Forcefully stub any attempt to load @radix-ui/react-tooltip, even from prebundled deps
-    {
-      name: 'no-radix-tooltip',
-      enforce: 'pre',
-      resolveId(source) {
-        if (source === '@radix-ui/react-tooltip' || source.startsWith('@radix-ui/react-tooltip/')) {
-          return path.resolve(__dirname, './src/shims/radix-tooltip-stub-alt.tsx');
-        }
-        return null;
-      },
-      load(id) {
-        if (id.includes('@radix-ui_react-tooltip')) {
-          return `export const Provider=({children})=>children;export const Root=({children})=>children;export const Trigger=(props)=>null;export const Content=(props)=>null;export const Arrow=()=>null;export const Portal=({children})=>children;export const Tooltip=Root;export const TooltipTrigger=Trigger;export const TooltipContent=Content;`;
-        }
-        return null;
-      },
-    },
     react(),
     // Temporarily disabled to resolve TooltipProvider invalid hook crash; re-enable after fix
     // mode === 'development' && componentTagger(),
