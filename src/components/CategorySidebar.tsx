@@ -15,7 +15,7 @@ interface Category {
 
 interface CategorySidebarProps {
   selectedCategory: string | null;
-  onCategorySelect: (categoryId: string | null) => void;
+  onCategorySelect: (categoryId: string | null, categoryName?: string) => void;
   refreshTrigger: number;
 }
 
@@ -96,7 +96,7 @@ const CategorySidebar = ({ selectedCategory, onCategorySelect, refreshTrigger }:
     return (
       <div key={category.id}>
         <button
-          onClick={() => onCategorySelect(category.id)}
+          onClick={() => onCategorySelect(category.id, category.name)}
           className={`w-full text-left px-4 py-3 rounded-lg transition-all flex items-center gap-2 ${
             isSelected
               ? "bg-primary text-primary-foreground shadow-soft"

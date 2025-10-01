@@ -9,11 +9,14 @@ import CategorySidebar from "@/components/CategorySidebar";
 import NotesGrid from "@/components/NotesGrid";
 import GraphView from "@/components/GraphView";
 import { Card } from "@/components/ui/card";
+import ObsidianStyleNoteView from "@/components/ObsidianStyleNoteView";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string>("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [showObsidianView, setShowObsidianView] = useState(false);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -24,8 +27,32 @@ const Dashboard = () => {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  const handleCategorySelect = (categoryId: string | null, categoryName?: string) => {
+    setSelectedCategory(categoryId);
+    if (categoryId && categoryName) {
+      setSelectedCategoryName(categoryName);
+      setShowObsidianView(true);
+    } else {
+      setShowObsidianView(false);
+    }
+  };
+
+  const handleCloseObsidianView = () => {
+    setShowObsidianView(false);
+    setSelectedCategory(null);
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-secondary">
+      {showObsidianView && selectedCategory && (
+        <ObsidianStyleNoteView
+          categoryId={selectedCategory}
+          categoryName={selectedCategoryName}
+          onClose={handleCloseObsidianView}
+          onNoteDeleted={handleNoteCreated}
+        />
+      )}
+
       {/* Header */}
       <header className="border-b border-border bg-card backdrop-blur-sm sticky top-0 z-10">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
@@ -77,29 +104,16 @@ const Dashboard = () => {
               <aside className="lg:col-span-1">
                 <CategorySidebar
                   selectedCategory={selectedCategory}
-                  onCategorySelect={setSelectedCategory}
+                  onCategorySelect={handleCategorySelect}
                   refreshTrigger={refreshTrigger}
                 />
               </aside>
 
               {/* Main Area */}
-              <main className="lg:col-span-3 space-y-6">
-                {/* Graph View */}
+              <main className="lg:col-span-3">
                 <Card className="p-0">
                   <GraphView />
                 </Card>
-
-                {/* Notes Grid - shown when category is selected */}
-                {selectedCategory && (
-                  <div>
-                    <h2 className="text-lg font-semibold mb-4">Notes in this category</h2>
-                    <NotesGrid
-                      selectedCategory={selectedCategory}
-                      refreshTrigger={refreshTrigger}
-                      onNoteDeleted={handleNoteCreated}
-                    />
-                  </div>
-                )}
               </main>
             </div>
           </TabsContent>
