@@ -1,5 +1,5 @@
 import * as React from "react";
-import * as TooltipPrimitive from "@/shims/radix-tooltip-stub";
+import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 
 import { cn } from "@/lib/utils";
 
@@ -23,6 +23,6 @@ const TooltipContent = React.forwardRef<
     {...props}
   />
 ));
-TooltipContent.displayName = TooltipPrimitive.Content.displayName;
+TooltipContent.displayName = "TooltipContent";
 
 export { Tooltip, TooltipTrigger, TooltipContent };
