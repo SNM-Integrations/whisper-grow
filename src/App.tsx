@@ -7,6 +7,7 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import ReactRuntimeCheck from "@/debug/ReactRuntimeCheck";
 
 const queryClient = new QueryClient();
 
