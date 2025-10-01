@@ -16,6 +16,12 @@ const AudioUpload = ({ onTranscriptComplete }: AudioUploadProps) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    // Check if it's a text file
+    if (file.type === 'text/plain' || file.name.match(/\.txt$/i)) {
+      await processTextFile(file);
+      return;
+    }
+
     // Check file size (25MB limit for Whisper API)
     const maxSize = 25 * 1024 * 1024; // 25MB
     if (file.size > maxSize) {
@@ -26,11 +32,33 @@ const AudioUpload = ({ onTranscriptComplete }: AudioUploadProps) => {
     // Check file type
     const validTypes = ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/webm', 'audio/m4a', 'audio/mp4', 'audio/ogg'];
     if (!validTypes.includes(file.type) && !file.name.match(/\.(mp3|wav|webm|m4a|ogg)$/i)) {
-      toast.error("Invalid audio file format. Supported: MP3, WAV, WebM, M4A, OGG");
+      toast.error("Invalid file format. Supported: MP3, WAV, WebM, M4A, OGG, TXT");
       return;
     }
 
     await processAudio(file);
+  };
+
+  const processTextFile = async (file: File) => {
+    setIsProcessing(true);
+    try {
+      const text = await file.text();
+      
+      if (!text.trim()) {
+        throw new Error('Text file is empty');
+      }
+
+      onTranscriptComplete(text);
+      toast.success("Text file imported successfully");
+    } catch (error) {
+      console.error("Error processing text file:", error);
+      toast.error("Failed to read text file");
+    } finally {
+      setIsProcessing(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
   };
 
   const processAudio = async (file: File) => {
@@ -76,7 +104,7 @@ const AudioUpload = ({ onTranscriptComplete }: AudioUploadProps) => {
       <input
         ref={fileInputRef}
         type="file"
-        accept="audio/*,.mp3,.wav,.webm,.m4a,.ogg"
+        accept="audio/*,.mp3,.wav,.webm,.m4a,.ogg,.txt"
         onChange={handleFileSelect}
         className="hidden"
         disabled={isProcessing}
@@ -88,10 +116,10 @@ const AudioUpload = ({ onTranscriptComplete }: AudioUploadProps) => {
         className="gap-2"
       >
         <Upload className="h-4 w-4" />
-        {isProcessing ? "Processing..." : "Upload Audio File"}
+        {isProcessing ? "Processing..." : "Upload Audio or Text File"}
       </Button>
       <p className="text-xs text-muted-foreground text-center">
-        Supports MP3, WAV, WebM, M4A, OGG (max 25MB)
+        Supports MP3, WAV, WebM, M4A, OGG (max 25MB) or TXT files
       </p>
     </div>
   );
