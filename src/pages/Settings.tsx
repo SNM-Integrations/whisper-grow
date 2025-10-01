@@ -128,13 +128,13 @@ const Settings = () => {
         .select('*', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
-      // Get embeddings count by querying notes that have embeddings
-      const { data: notesWithEmbeddings } = await supabase
-        .from('notes')
-        .select('id, note_embeddings!inner(id)')
-        .eq('user_id', user.id);
+      // Get embeddings count by directly querying note_embeddings joined with notes
+      const { data: embeddings } = await supabase
+        .from('note_embeddings')
+        .select('note_id, notes!inner(user_id)')
+        .eq('notes.user_id', user.id);
       
-      const embeddingsCount = notesWithEmbeddings?.length || 0;
+      const embeddingsCount = embeddings?.length || 0;
 
       // Get top categories
       const { data: topCats } = await supabase
@@ -169,12 +169,21 @@ const Settings = () => {
 
       toast.info('Starting to backfill embeddings...');
 
-      // Get all notes without embeddings
-      const { data: notesWithoutEmbeddings } = await supabase
+      // Get all note IDs with embeddings
+      const { data: existingEmbeddings } = await supabase
+        .from('note_embeddings')
+        .select('note_id');
+      
+      const embeddedNoteIds = new Set(existingEmbeddings?.map(e => e.note_id) || []);
+      
+      // Get all notes
+      const { data: allNotes } = await supabase
         .from('notes')
         .select('id, content')
-        .eq('user_id', user.id)
-        .not('id', 'in', `(SELECT note_id FROM note_embeddings)`);
+        .eq('user_id', user.id);
+      
+      // Filter notes without embeddings
+      const notesWithoutEmbeddings = allNotes?.filter(note => !embeddedNoteIds.has(note.id)) || [];
 
       if (!notesWithoutEmbeddings || notesWithoutEmbeddings.length === 0) {
         toast.success('All notes already have embeddings!');
