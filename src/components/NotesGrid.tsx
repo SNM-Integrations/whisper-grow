@@ -3,9 +3,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Trash2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import NoteDialog from "./NoteDialog";
 
 interface Note {
   id: string;
@@ -26,6 +27,8 @@ interface NotesGridProps {
 
 const NotesGrid = ({ selectedCategory, refreshTrigger, onNoteDeleted }: NotesGridProps) => {
   const [notes, setNotes] = useState<Note[]>([]);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
     fetchNotes();
@@ -80,6 +83,11 @@ const NotesGrid = ({ selectedCategory, refreshTrigger, onNoteDeleted }: NotesGri
     }
   };
 
+  const handleViewNote = (note: Note) => {
+    setSelectedNote(note);
+    setDialogOpen(true);
+  };
+
   if (notes.length === 0) {
     return (
       <div className="flex items-center justify-center h-[400px] text-muted-foreground">
@@ -89,34 +97,59 @@ const NotesGrid = ({ selectedCategory, refreshTrigger, onNoteDeleted }: NotesGri
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {notes.map((note) => (
-        <Card
-          key={note.id}
-          className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur hover:shadow-glow transition-all"
-        >
-          <div className="flex justify-between items-start mb-3">
-            <Badge variant="secondary" className="text-xs">
-              {note.categories?.name || "Uncategorized"}
-            </Badge>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => handleDelete(note.id)}
-              className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-          <p className="text-sm leading-relaxed mb-3">
-            {note.formatted_content || note.content}
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {format(new Date(note.created_at), "MMM d, yyyy 'at' h:mm a")}
-          </p>
-        </Card>
-      ))}
-    </div>
+    <>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {notes.map((note) => (
+          <Card
+            key={note.id}
+            className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur hover:shadow-glow transition-all cursor-pointer"
+            onClick={() => handleViewNote(note)}
+          >
+            <div className="flex justify-between items-start mb-3">
+              <Badge variant="secondary" className="text-xs">
+                {note.categories?.name || "Uncategorized"}
+              </Badge>
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleViewNote(note);
+                  }}
+                  className="h-8 w-8 p-0 hover:bg-accent"
+                >
+                  <Eye className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(note.id);
+                  }}
+                  className="h-8 w-8 p-0 hover:bg-destructive hover:text-destructive-foreground"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+            <p className="text-sm leading-relaxed mb-3 line-clamp-3">
+              {note.formatted_content || note.content}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {format(new Date(note.created_at), "MMM d, yyyy 'at' h:mm a")}
+            </p>
+          </Card>
+        ))}
+      </div>
+
+      <NoteDialog 
+        note={selectedNote}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
+    </>
   );
 };
 

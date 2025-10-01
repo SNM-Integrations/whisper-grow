@@ -2,11 +2,19 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { X } from "lucide-react";
+import NoteDialog from "./NoteDialog";
 
 interface Note {
   id: string;
   content: string;
-  category_name?: string;
+  formatted_content: string | null;
+  created_at: string;
+  note_type: string;
+  categories: {
+    name: string;
+  } | null;
 }
 
 interface Connection {
@@ -36,6 +44,9 @@ const GraphView = () => {
   const [nodes, setNodes] = useState<GraphNode[]>([]);
   const [links, setLinks] = useState<GraphLink[]>([]);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
+  const [selectedNote, setSelectedNote] = useState<Note | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [allNotes, setAllNotes] = useState<Note[]>([]);
   const animationRef = useRef<number>();
 
   useEffect(() => {
@@ -64,11 +75,17 @@ const GraphView = () => {
         .select(`
           id,
           content,
+          formatted_content,
+          created_at,
+          note_type,
           categories (name)
         `)
-        .eq('user_id', user.id);
+        .eq('user_id', user.id)
+        .eq('note_type', 'original');
 
       if (notesError) throw notesError;
+      
+      setAllNotes(notesData as Note[]);
 
       // Fetch connections
       const { data: connectionsData, error: connectionsError } = await supabase
@@ -246,35 +263,72 @@ const GraphView = () => {
       return Math.sqrt(dx * dx + dy * dy) < 15;
     });
 
+    if (clicked) {
+      const fullNote = allNotes.find(n => n.id === clicked.id);
+      if (fullNote) {
+        setSelectedNote(fullNote);
+        setDialogOpen(true);
+      }
+    }
+    
     setSelectedNode(clicked || null);
   };
 
   return (
-    <div className="h-full flex gap-4">
-      <Card className="flex-1 p-0 relative bg-black border-border">
+    <>
+      <div className="relative bg-black border border-border rounded-lg overflow-hidden" style={{ height: '600px' }}>
         <canvas
           ref={canvasRef}
           onClick={handleCanvasClick}
           className="w-full h-full cursor-pointer"
-          style={{ minHeight: '600px', backgroundColor: '#000000' }}
         />
         {nodes.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
-            <p className="text-muted-foreground">No notes yet. Start creating to see your brain map!</p>
+            <p className="text-white/60">No notes yet. Start creating to see your brain map!</p>
           </div>
         )}
-      </Card>
-
-      {selectedNode && (
-        <Card className="w-80 p-6 bg-card border-border">
-          <h3 className="font-semibold mb-2 text-primary">Selected Note</h3>
-          <div className="space-y-2">
-            <p className="text-sm text-muted-foreground">Category: {selectedNode.category}</p>
-            <p className="text-sm text-foreground">{selectedNode.content}...</p>
+        
+        {selectedNode && (
+          <div className="absolute top-4 right-4 w-72 bg-card/95 backdrop-blur border border-border rounded-lg p-4 shadow-lg">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-semibold text-sm text-primary">Selected Node</h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSelectedNode(null)}
+                className="h-6 w-6 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground">Category: {selectedNode.category}</p>
+              <p className="text-xs text-foreground line-clamp-3">{selectedNode.content}...</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const fullNote = allNotes.find(n => n.id === selectedNode.id);
+                  if (fullNote) {
+                    setSelectedNote(fullNote);
+                    setDialogOpen(true);
+                  }
+                }}
+                className="w-full mt-2"
+              >
+                View Full Note
+              </Button>
+            </div>
           </div>
-        </Card>
-      )}
-    </div>
+        )}
+      </div>
+
+      <NoteDialog 
+        note={selectedNote}
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+      />
+    </>
   );
 };
 

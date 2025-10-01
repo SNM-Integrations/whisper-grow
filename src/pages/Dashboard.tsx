@@ -8,6 +8,7 @@ import NoteInput from "@/components/NoteInput";
 import CategorySidebar from "@/components/CategorySidebar";
 import NotesGrid from "@/components/NotesGrid";
 import GraphView from "@/components/GraphView";
+import { Card } from "@/components/ui/card";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -81,9 +82,24 @@ const Dashboard = () => {
                 />
               </aside>
 
-              {/* Main Area - Brain Map */}
-              <main className="lg:col-span-3">
-                <GraphView />
+              {/* Main Area */}
+              <main className="lg:col-span-3 space-y-6">
+                {/* Graph View */}
+                <Card className="p-0">
+                  <GraphView />
+                </Card>
+
+                {/* Notes Grid - shown when category is selected */}
+                {selectedCategory && (
+                  <div>
+                    <h2 className="text-lg font-semibold mb-4">Notes in this category</h2>
+                    <NotesGrid
+                      selectedCategory={selectedCategory}
+                      refreshTrigger={refreshTrigger}
+                      onNoteDeleted={handleNoteCreated}
+                    />
+                  </div>
+                )}
               </main>
             </div>
           </TabsContent>
