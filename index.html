@@ -22,10 +22,26 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+
+    <script>
+      // Pre-boot cache/SW purge to avoid stale module bundles causing invalid hook calls
+      (function () {
+        try {
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach((r) => r.unregister()));
+          }
+          if ('caches' in window) {
+            caches.keys().then((keys) => keys.forEach((k) => caches.delete(k)));
+          }
+        } catch (e) {
+          console.warn('Preboot cache cleanup failed:', e);
+        }
+      })();
+    </script>
   </head>
 
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/main.tsx?v=20251001"></script>
   </body>
 </html>
