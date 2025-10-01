@@ -33,7 +33,7 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY')!;
+    const openaiApiKey = Deno.env.get('OPENAI_API_KEY')!;
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -69,22 +69,22 @@ serve(async (req) => {
 
     console.log('Generating embedding for note:', noteId);
 
-    // Generate embedding using Lovable AI
-    const embeddingResponse = await fetch('https://ai.gateway.lovable.dev/v1/embeddings', {
+    // Generate embedding using OpenAI
+    const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${lovableApiKey}`,
+        'Authorization': `Bearer ${openaiApiKey}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
         input: content,
-        model: 'openai/gpt-5-mini',
+        model: 'text-embedding-3-small',
       }),
     });
 
     if (!embeddingResponse.ok) {
       const errorText = await embeddingResponse.text();
-      console.error('Lovable AI embedding error:', embeddingResponse.status, errorText);
+      console.error('OpenAI embedding error:', embeddingResponse.status, errorText);
       return new Response(
         JSON.stringify({ error: 'Failed to generate embedding' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
