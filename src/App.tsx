@@ -7,13 +7,11 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
-import ReactRuntimeCheck from "@/debug/ReactRuntimeCheck";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <ReactRuntimeCheck />
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Index />} />
