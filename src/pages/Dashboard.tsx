@@ -8,9 +8,6 @@ import NoteInput from "@/components/NoteInput";
 import CategorySidebar from "@/components/CategorySidebar";
 import NotesGrid from "@/components/NotesGrid";
 import GraphView from "@/components/GraphView";
-import Calendar from "@/components/Calendar";
-import TaskList from "@/components/TaskList";
-import GoogleCalendarConnect from "@/components/GoogleCalendarConnect";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -71,7 +68,6 @@ const Dashboard = () => {
           <TabsList className="mb-6">
             <TabsTrigger value="map">Brain Map</TabsTrigger>
             <TabsTrigger value="input">Save Thought</TabsTrigger>
-            <TabsTrigger value="calendar">Calendar & Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="map" className="mt-0">
@@ -103,23 +99,6 @@ const Dashboard = () => {
                 refreshTrigger={refreshTrigger}
                 onNoteDeleted={handleNoteCreated}
               />
-            </div>
-          </TabsContent>
-
-          <TabsContent value="calendar" className="mt-0">
-            <div className="space-y-6">
-              {/* Google Calendar Connection */}
-              <GoogleCalendarConnect />
-
-              {/* Split View: Calendar (60%) | Tasks (40%) */}
-              <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                <div className="lg:col-span-3">
-                  <Calendar />
-                </div>
-                <div className="lg:col-span-2">
-                  <TaskList />
-                </div>
-              </div>
             </div>
           </TabsContent>
         </Tabs>
