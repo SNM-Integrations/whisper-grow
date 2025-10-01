@@ -6,17 +6,16 @@ import "@/debug/early-react-check";
 // Enable dark mode by default
 document.documentElement.classList.add('dark');
 
-// Register service worker for PWA support
+// Disable service worker and clear any existing caches to avoid stale prebundled chunks
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then((registration) => {
-        console.log('SW registered:', registration);
-      })
-      .catch((error) => {
-        console.log('SW registration failed:', error);
-      });
+  navigator.serviceWorker.getRegistrations().then((registrations) => {
+    registrations.forEach((reg) => reg.unregister());
+    if ('caches' in window) {
+      caches.keys().then((keys) => keys.forEach((key) => caches.delete(key)));
+    }
+    console.log('Service workers unregistered and caches cleared');
   });
 }
+
 
 createRoot(document.getElementById("root")!).render(<App />);
