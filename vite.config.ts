@@ -20,6 +20,7 @@ export default defineConfig(({ mode }) => ({
       'react-dom',
       'react/jsx-runtime',
       'react/jsx-dev-runtime',
+      '@radix-ui/react-tooltip',
     ],
   },
   resolve: {
