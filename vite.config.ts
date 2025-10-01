@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      "@radix-ui/react-tooltip": path.resolve(__dirname, "./src/shims/radix-tooltip-stub.tsx"),
     },
     dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
   },

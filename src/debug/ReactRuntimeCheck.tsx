@@ -61,9 +61,27 @@ const ReactRuntimeCheck: React.FC = () => {
       })
       .catch((e) => console.warn("[ReactRuntimeCheck] dynamic import check failed", e));
 
-    // Presence of React element symbol
+    // Presence of React element symbol and DevTools renderer info
     const reactElementSymbol = (Symbol as any).for?.("react.element");
     console.log("[ReactRuntimeCheck] react.element symbol present:", Boolean(reactElementSymbol));
+
+    const hook = (w as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+    if (hook) {
+      try {
+        const renderersArr = Array.from(hook.renderers?.values?.() || []);
+        console.log("[ReactRuntimeCheck] DevTools renderers count:", renderersArr.length);
+        renderersArr.forEach((r: any, i: number) => {
+          console.log(`[ReactRuntimeCheck] renderer[${i}]`, {
+            version: r?.version,
+            packageName: r?.rendererPackageName,
+          });
+        });
+      } catch (e) {
+        console.warn("[ReactRuntimeCheck] Failed to inspect DevTools renderers", e);
+      }
+    } else {
+      console.log("[ReactRuntimeCheck] DevTools hook not found");
+    }
 
     console.groupEnd();
   }, []);
