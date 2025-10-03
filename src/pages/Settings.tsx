@@ -635,8 +635,8 @@ const Settings = () => {
                       if (error) throw error;
                       if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
                       
-                      // Redirect to Google OAuth (not popup - popups get blocked)
-                      window.location.href = data.authUrl;
+                      // Redirect to Google OAuth (force top-level to bypass iframe blockers)
+                      if (window.top) { (window.top as Window).location.href = data.authUrl; } else { window.location.href = data.authUrl; }
                     } catch (error) {
                       console.error('OAuth error:', error);
                       toast.error('Failed to initiate Google connection. Please check configuration.');

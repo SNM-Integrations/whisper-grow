@@ -37,6 +37,10 @@ serve(async (req) => {
       throw new Error('Google OAuth credentials not configured');
     }
 
+    // Build redirect URI dynamically to match initial auth URL
+    const origin = req.headers.get('origin') || 'https://eed02dec-e8b2-4e5e-a52f-9a4de393a610.lovableproject.com';
+    const redirectUri = `${origin}/settings?oauth=google`;
+
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
@@ -47,7 +51,7 @@ serve(async (req) => {
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: 'https://eed02dec-e8b2-4e5e-a52f-9a4de393a610.lovableproject.com/settings?oauth=google',
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code',
       }),
     });
