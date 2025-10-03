@@ -17,3 +17,15 @@ verify_jwt = true
 
 [functions.auto-link-notes]
 verify_jwt = true
+
+[functions.process-smart-input]
+verify_jwt = true
+
+[functions.google-auth-callback]
+verify_jwt = true
+
+[functions.sync-to-google-calendar]
+verify_jwt = true
+
+[functions.sync-from-google-calendar]
+verify_jwt = true

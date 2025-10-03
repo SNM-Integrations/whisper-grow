@@ -28,28 +28,61 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get AI categorization
-      const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
-        'categorize-note',
-        {
-          body: { noteContent: noteText, userId: user.id }
-        }
+      // First, use AI to classify the input
+      const { data: smartData, error: smartError } = await supabase.functions.invoke(
+        'process-smart-input',
+        { body: { text: noteText } }
       );
 
-      if (categoryError) throw categoryError;
+      if (smartError) {
+        console.error('Smart input processing failed:', smartError);
+        // Fall back to regular note creation
+        await createNote(noteText);
+        return;
+      }
 
-      // Create the note
-      const { data: newNote, error: noteError } = await supabase
-        .from('notes')
-        .insert({
-          content: noteText,
-          category_id: categoryData.categoryId,
-          user_id: user.id
-        })
-        .select()
-        .single();
+      console.log('AI classified input as:', smartData.type, smartData.data);
 
-      if (noteError) throw noteError;
+      // Route based on AI classification
+      if (smartData.type === 'EVENT') {
+        await createCalendarEvent(smartData.data);
+      } else if (smartData.type === 'TASK') {
+        await createTask(smartData.data);
+      } else {
+        await createNote(smartData.data.content, smartData.data.category);
+      }
+    } catch (error) {
+      console.error("Error processing input:", error);
+      toast.error("Failed to save");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const createNote = async (content: string, suggestedCategory?: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    // Get AI categorization
+    const { data: categoryData, error: categoryError } = await supabase.functions.invoke(
+      'categorize-note',
+      { body: { noteContent: content, userId: user.id } }
+    );
+
+    if (categoryError) throw categoryError;
+
+    // Create the note
+    const { data: newNote, error: noteError } = await supabase
+      .from('notes')
+      .insert({
+        content: content,
+        category_id: categoryData.categoryId,
+        user_id: user.id
+      })
+      .select()
+      .single();
+
+    if (noteError) throw noteError;
 
       // Generate embedding and auto-link (fire and forget)
       if (newNote) {
@@ -84,15 +117,63 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
         }
       }
 
-      toast.success(`Note added to ${categoryData.categoryName}`);
-      setNoteText("");
-      onNoteCreated();
-    } catch (error) {
-      console.error("Error creating note:", error);
-      toast.error("Failed to create note");
-    } finally {
-      setIsSubmitting(false);
+    toast.success(`Note added to ${categoryData.categoryName}`);
+    setNoteText("");
+    onNoteCreated();
+  };
+
+  const createCalendarEvent = async (eventData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    // Construct date-time from extracted data
+    const startDate = new Date(eventData.date);
+    if (eventData.time) {
+      const [hours, minutes] = eventData.time.split(':');
+      startDate.setHours(parseInt(hours), parseInt(minutes), 0);
+    } else {
+      startDate.setHours(9, 0, 0); // Default to 9 AM
     }
+
+    const endDate = new Date(startDate);
+    endDate.setMinutes(endDate.getMinutes() + (eventData.duration_minutes || 60));
+
+    const { error } = await supabase
+      .from('calendar_events')
+      .insert({
+        user_id: user.id,
+        title: eventData.title,
+        start_time: startDate.toISOString(),
+        end_time: endDate.toISOString(),
+        location: eventData.location,
+      });
+
+    if (error) throw error;
+
+    toast.success(`Calendar event "${eventData.title}" created`);
+    setNoteText("");
+    onNoteCreated();
+  };
+
+  const createTask = async (taskData: any) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Not authenticated");
+
+    const { error } = await supabase
+      .from('tasks')
+      .insert({
+        user_id: user.id,
+        title: taskData.title,
+        description: taskData.description,
+        due_date: taskData.due_date ? new Date(taskData.due_date).toISOString() : null,
+        priority: taskData.priority || 'medium',
+      });
+
+    if (error) throw error;
+
+    toast.success(`Task "${taskData.title}" created`);
+    setNoteText("");
+    onNoteCreated();
   };
 
   const handleTranscriptComplete = async (text: string) => {

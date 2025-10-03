@@ -361,10 +361,11 @@ const Settings = () => {
         </div>
 
         <Tabs defaultValue="ai" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="ai">AI Configuration</TabsTrigger>
             <TabsTrigger value="knowledge">AI Knowledge</TabsTrigger>
             <TabsTrigger value="categories">Categories</TabsTrigger>
+            <TabsTrigger value="google">Google Calendar</TabsTrigger>
             <TabsTrigger value="info">How It Works</TabsTrigger>
           </TabsList>
 
@@ -583,6 +584,68 @@ const Settings = () => {
                   ))}
                 </div>
               )}
+            </Card>
+          </TabsContent>
+
+          {/* Google Calendar Tab */}
+          <TabsContent value="google" className="space-y-6">
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <h3 className="text-lg font-semibold mb-4">Google Calendar Integration</h3>
+              <p className="text-muted-foreground mb-6">
+                Connect your Google Calendar to sync events between your Second Brain and Google.
+              </p>
+              
+              <div className="space-y-4">
+                <Button 
+                  onClick={async () => {
+                    // Note: GOOGLE_CLIENT_ID should be set as a public env var
+                    const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // User needs to replace this
+                    const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-auth-callback`;
+                    const scope = 'https://www.googleapis.com/auth/calendar';
+                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
+                    window.open(authUrl, '_blank');
+                    toast.info('Opening Google OAuth...');
+                  }}
+                  className="w-full"
+                >
+                  Connect Google Calendar
+                </Button>
+                
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">Manual Sync</h4>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Sync your events with Google Calendar manually:
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={async () => {
+                        try {
+                          toast.info('Pulling events from Google Calendar...');
+                          const { error } = await supabase.functions.invoke('sync-from-google-calendar');
+                          if (error) throw error;
+                          toast.success('Events synced from Google Calendar');
+                        } catch (error) {
+                          console.error('Sync error:', error);
+                          toast.error('Failed to sync from Google Calendar');
+                        }
+                      }}
+                      variant="outline"
+                      className="flex-1"
+                    >
+                      Pull from Google
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-medium mb-2">How It Works</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
+                    <li>Events created in your calendar are automatically synced to Google</li>
+                    <li>Use "Pull from Google" to import Google Calendar events</li>
+                    <li>Changes made in either place can be synced manually</li>
+                  </ul>
+                </div>
+              </div>
             </Card>
           </TabsContent>
 
