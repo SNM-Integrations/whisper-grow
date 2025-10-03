@@ -47,7 +47,7 @@ serve(async (req) => {
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: `${supabaseUrl}/functions/v1/google-auth-callback`,
+        redirect_uri: 'https://eed02dec-e8b2-4e5e-a52f-9a4de393a610.lovableproject.com/settings?oauth=google',
         grant_type: 'authorization_code',
       }),
     });

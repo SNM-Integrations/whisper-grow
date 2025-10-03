@@ -113,7 +113,37 @@ const Settings = () => {
     fetchSettings();
     fetchCategories();
     fetchKnowledgeStats();
+    handleOAuthCallback();
   }, []);
+
+  const handleOAuthCallback = async () => {
+    // Check if we're returning from Google OAuth
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const oauth = params.get('oauth');
+    
+    if (code && oauth === 'google') {
+      try {
+        toast.info('Connecting to Google Calendar...');
+        
+        // Send the code to our backend to exchange for tokens
+        const { data, error } = await supabase.functions.invoke('google-auth-callback', {
+          body: { code }
+        });
+        
+        if (error) throw error;
+        
+        toast.success('Successfully connected to Google Calendar!');
+        
+        // Clean up URL
+        window.history.replaceState({}, '', '/settings');
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+        toast.error('Failed to connect Google Calendar');
+        window.history.replaceState({}, '', '/settings');
+      }
+    }
+  };
 
   const fetchSettings = async () => {
     try {
@@ -598,13 +628,19 @@ const Settings = () => {
               <div className="space-y-4">
                 <Button 
                   onClick={async () => {
-                    // Note: GOOGLE_CLIENT_ID should be set as a public env var
-                    const clientId = 'YOUR_GOOGLE_CLIENT_ID'; // User needs to replace this
-                    const redirectUri = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/google-auth-callback`;
-                    const scope = 'https://www.googleapis.com/auth/calendar';
-                    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
-                    window.open(authUrl, '_blank');
-                    toast.info('Opening Google OAuth...');
+                    try {
+                      // Get Google Client ID from backend
+                      const { data, error } = await supabase.functions.invoke('get-google-oauth-url');
+                      
+                      if (error) throw error;
+                      if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
+                      
+                      // Redirect to Google OAuth (not popup - popups get blocked)
+                      window.location.href = data.authUrl;
+                    } catch (error) {
+                      console.error('OAuth error:', error);
+                      toast.error('Failed to initiate Google connection. Please check configuration.');
+                    }
                   }}
                   className="w-full"
                 >
