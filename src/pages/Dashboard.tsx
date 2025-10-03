@@ -10,6 +10,8 @@ import NotesGrid from "@/components/NotesGrid";
 import GraphView from "@/components/GraphView";
 import { Card } from "@/components/ui/card";
 import ObsidianStyleNoteView from "@/components/ObsidianStyleNoteView";
+import CalendarView from "@/components/CalendarView";
+import TaskList from "@/components/TaskList";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -87,6 +89,8 @@ const Dashboard = () => {
           <TabsList className="mb-6">
             <TabsTrigger value="map">Brain Map</TabsTrigger>
             <TabsTrigger value="input">Save Thought</TabsTrigger>
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
           </TabsList>
 
           <TabsContent value="map" className="mt-0">
@@ -132,6 +136,14 @@ const Dashboard = () => {
                 onNoteDeleted={handleNoteCreated}
               />
             </div>
+          </TabsContent>
+
+          <TabsContent value="calendar" className="mt-0">
+            <CalendarView refreshTrigger={refreshTrigger} />
+          </TabsContent>
+
+          <TabsContent value="tasks" className="mt-0">
+            <TaskList refreshTrigger={refreshTrigger} />
           </TabsContent>
         </Tabs>
       </div>
