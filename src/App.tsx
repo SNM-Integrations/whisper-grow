@@ -1,5 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
@@ -11,11 +10,17 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+const AppToaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
+const AppSonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
+
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
-      <Toaster />
-      <Sonner />
+      <Suspense fallback={null}>
+        <AppToaster />
+        <AppSonner />
+      </Suspense>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />

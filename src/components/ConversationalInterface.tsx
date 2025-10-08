@@ -50,7 +50,7 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
 
       const token = session.access_token;
       const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID || 'pccvvqmrwbcdjgkyteqn';
-      const wsUrl = `wss://${projectId}.supabase.co/functions/v1/realtime-conversation?token=${token}`;
+      const wsUrl = `wss://${projectId}.functions.supabase.co/functions/v1/realtime-conversation?token=${token}`;
 
       wsRef.current = new WebSocket(wsUrl);
 
