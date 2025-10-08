@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Mic, Type, Send, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import VoiceRecorder from "./VoiceRecorder";
+import ConversationalInterface from "./ConversationalInterface";
 import AudioUpload from "./AudioUpload";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,7 @@ interface NoteInputProps {
 }
 
 const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
-  const [inputMode, setInputMode] = useState<"text" | "voice" | "upload">("text");
+  const [inputMode, setInputMode] = useState<"text" | "conversation" | "upload">("text");
   const [noteText, setNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -308,13 +308,13 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
           Text
         </Button>
         <Button
-          variant={inputMode === "voice" ? "default" : "outline"}
+          variant={inputMode === "conversation" ? "default" : "outline"}
           size="sm"
-          onClick={() => setInputMode("voice")}
+          onClick={() => setInputMode("conversation")}
           className="flex-1"
         >
           <Mic className="h-4 w-4 mr-2" />
-          Voice
+          AI Conversation
         </Button>
         <Button
           variant={inputMode === "upload" ? "default" : "outline"}
@@ -344,9 +344,9 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
             {isSubmitting ? "Saving..." : "Save Thought"}
           </Button>
         </div>
-      ) : inputMode === "voice" ? (
+      ) : inputMode === "conversation" ? (
         <div className="py-8">
-          <VoiceRecorder onTranscriptComplete={handleTranscriptComplete} />
+          <ConversationalInterface onNoteCreated={onNoteCreated} />
         </div>
       ) : (
         <div className="py-8">
