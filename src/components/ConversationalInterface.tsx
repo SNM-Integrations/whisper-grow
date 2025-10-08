@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Volume2, Loader2 } from "lucide-react";
 import { toast } from "sonner";

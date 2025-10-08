@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, Type, Send, Upload } from "lucide-react";
+import { Mic, Type, Send, Upload, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import ConversationalInterface from "./ConversationalInterface";
 import AudioUpload from "./AudioUpload";
+
+// Lazy load the conversational interface to avoid loading order issues
+const ConversationalInterface = lazy(() => import("./ConversationalInterface"));
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -346,7 +348,14 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
         </div>
       ) : inputMode === "conversation" ? (
         <div className="py-8">
-          <ConversationalInterface onNoteCreated={onNoteCreated} />
+          <Suspense fallback={
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <p className="text-sm text-muted-foreground">Loading AI Assistant...</p>
+            </div>
+          }>
+            <ConversationalInterface onNoteCreated={onNoteCreated} />
+          </Suspense>
         </div>
       ) : (
         <div className="py-8">
