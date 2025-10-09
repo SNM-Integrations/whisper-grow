@@ -10,19 +10,18 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-const AppToaster = lazy(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })));
-const AppSonner = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
-
+import { Toaster as AppToaster } from "@/components/ui/toaster";
+import { Toaster as AppSonner } from "@/components/ui/sonner";
 
 const ClientToasters = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
   return (
-    <Suspense fallback={null}>
+    <>
       <AppToaster />
       <AppSonner />
-    </Suspense>
+    </>
   );
 };
 
