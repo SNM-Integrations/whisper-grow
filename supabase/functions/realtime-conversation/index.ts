@@ -227,7 +227,7 @@ Deno.serve(async (req) => {
           [
             'realtime',
             `openai-insecure-api-key.${OPENAI_API_KEY}`,
-            'openai-beta.realtime-v1'
+            'openai-beta.realtime=v1'
           ]
         );
       } catch (err) {
@@ -314,8 +314,9 @@ Deno.serve(async (req) => {
         try { socket.send(JSON.stringify({ type: 'error', message: 'OpenAI connection error' })); } catch (_) {}
       };
 
-      openAIWs.onclose = () => {
-        console.log("OpenAI WebSocket closed");
+      openAIWs.onclose = (ev) => {
+        console.log("OpenAI WebSocket closed", ev?.code, ev?.reason);
+        try { socket.send(JSON.stringify({ type: 'error', message: `OpenAI connection closed (${ev?.code || ''}) ${ev?.reason || ''}`.trim() })); } catch (_) {}
         socket.close();
       };
 
