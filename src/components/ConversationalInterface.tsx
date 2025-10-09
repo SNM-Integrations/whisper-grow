@@ -50,39 +50,43 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
 
       const token = session.access_token;
       const projectId = 'pccvvqmrwbcdjgkyteqn';
-      const wsUrl = `wss://${projectId}.functions.supabase.co/functions/v1/realtime-conversation?token=${token}`;
+      const wsUrl = `wss://${projectId}.functions.supabase.co/functions/v1/realtime-conversation?token=${encodeURIComponent(token)}`;
 
+      console.debug('[ConversationalInterface] Connecting to:', wsUrl.replace(encodeURIComponent(token), 'TOKEN_HIDDEN'));
       wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = async () => {
-        console.log("WebSocket connected");
+        console.log('[ConversationalInterface] WebSocket connected, waiting for AI ready signal...');
         setIsConnected(true);
-        toast.success("AI Assistant connected");
-
-        // Start audio recording
-        recorderRef.current = new AudioRecorder((audioData) => {
-          if (wsRef.current?.readyState === WebSocket.OPEN) {
-            const base64Audio = encodeAudioForAPI(audioData);
-            wsRef.current.send(JSON.stringify({
-              type: 'input_audio_buffer.append',
-              audio: base64Audio
-            }));
-          }
-        });
-
-        await recorderRef.current.start();
-        setIsRecording(true);
+        // Don't start recording yet - wait for "OpenAI connected" message
       };
 
       wsRef.current.onmessage = async (event) => {
         const data = JSON.parse(event.data);
-        console.log("Received:", data.type);
+        console.debug('[ConversationalInterface] Message received:', { type: data.type, code: data.code });
 
         if (data.type === 'status') {
           console.log('[Realtime status]', data.message);
           toast.info(data.message);
+          
+          // Start recording once OpenAI is connected
+          if (data.message.includes('OpenAI connected') && !recorderRef.current && audioContextRef.current) {
+            console.log('[ConversationalInterface] AI ready, starting recorder...');
+            recorderRef.current = new AudioRecorder((audioData) => {
+              if (wsRef.current?.readyState === WebSocket.OPEN) {
+                const base64Audio = encodeAudioForAPI(audioData);
+                wsRef.current.send(JSON.stringify({
+                  type: 'input_audio_buffer.append',
+                  audio: base64Audio
+                }));
+              }
+            });
+            await recorderRef.current.start();
+            setIsRecording(true);
+          }
         } else if (data.type === 'error') {
-          toast.error(data.message);
+          console.error('[ConversationalInterface] Error received:', data);
+          toast.error(`${data.message} ${data.code ? `(${data.code})` : ''}`);
           disconnect();
         } else if (data.type === 'response.audio.delta') {
           // Play audio response

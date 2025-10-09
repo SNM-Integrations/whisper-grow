@@ -189,8 +189,9 @@ Deno.serve(async (req) => {
     const token = url.searchParams.get('token');
     
     if (!token) {
-      socket.send(JSON.stringify({ type: 'error', message: 'No auth token provided' }));
-      socket.close();
+      console.error("No token provided");
+      try { socket.send(JSON.stringify({ type: 'error', code: 'auth_missing', message: 'No authentication token provided' })); } catch (_) {}
+      socket.close(1008, 'No token provided');
       return;
     }
 
@@ -204,8 +205,9 @@ Deno.serve(async (req) => {
     // Verify user
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
-      socket.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
-      socket.close();
+      console.error("Authentication failed:", authError);
+      try { socket.send(JSON.stringify({ type: 'error', code: 'auth_failed', message: `Authentication failed: ${authError?.message || 'Invalid token'}` })); } catch (_) {}
+      socket.close(1008, 'Authentication failed');
       return;
     }
     userId = user.id;
@@ -232,7 +234,7 @@ Deno.serve(async (req) => {
         );
       } catch (err) {
         console.error('WebSocket constructor failed:', err);
-        socket.send(JSON.stringify({ type: 'error', message: 'Failed to initialize OpenAI websocket' }));
+        try { socket.send(JSON.stringify({ type: 'error', code: 'openai_ws_init_failed', message: `Failed to initialize AI connection: ${err instanceof Error ? err.message : 'Unknown error'}` })); } catch (_) {}
         socket.close();
         return;
       }
@@ -316,7 +318,13 @@ Deno.serve(async (req) => {
 
       openAIWs.onclose = (ev) => {
         console.log("OpenAI WebSocket closed", ev?.code, ev?.reason);
-        try { socket.send(JSON.stringify({ type: 'error', message: `OpenAI connection closed (${ev?.code || ''}) ${ev?.reason || ''}`.trim() })); } catch (_) {}
+        try { 
+          socket.send(JSON.stringify({ 
+            type: 'error', 
+            code: 'openai_ws_closed', 
+            message: `AI connection closed${ev?.code ? ` (code: ${ev.code})` : ''}${ev?.reason ? `: ${ev.reason}` : ''}` 
+          })); 
+        } catch (_) {}
         socket.close();
       };
 
