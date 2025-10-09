@@ -1,7 +1,7 @@
 project_id = "pccvvqmrwbcdjgkyteqn"
 
 [functions.realtime-conversation]
-verify_jwt = true
+verify_jwt = false
 
 [functions.categorize-note]
 verify_jwt = true

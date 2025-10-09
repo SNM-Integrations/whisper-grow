@@ -50,10 +50,9 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
 
       const token = session.access_token;
       const projectId = 'pccvvqmrwbcdjgkyteqn';
-      const wsUrl = `wss://${projectId}.supabase.co/functions/v1/realtime-conversation`;
+      const wsUrl = `wss://${projectId}.functions.supabase.co/functions/v1/realtime-conversation?token=${token}`;
 
-      // Pass auth token via Sec-WebSocket-Protocol header (Supabase reads this as Authorization)
-      wsRef.current = new WebSocket(wsUrl, [`Bearer.${token}`]);
+      wsRef.current = new WebSocket(wsUrl);
 
       wsRef.current.onopen = async () => {
         console.log("WebSocket connected");

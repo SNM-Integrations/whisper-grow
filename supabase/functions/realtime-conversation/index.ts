@@ -184,39 +184,31 @@ Deno.serve(async (req) => {
   socket.onopen = async () => {
     console.log("Client WebSocket connected");
     
-    // When verify_jwt = true, Supabase automatically verifies and provides auth
-    // The token is extracted from Sec-WebSocket-Protocol header
-    const authHeader = req.headers.get('Authorization') || req.headers.get('sec-websocket-protocol');
+    // Get auth token from query params
+    const url = new URL(req.url);
+    const token = url.searchParams.get('token');
     
-    if (!authHeader) {
-      console.error("No auth header found");
-      socket.send(JSON.stringify({ type: 'error', message: 'Authentication required' }));
+    if (!token) {
+      socket.send(JSON.stringify({ type: 'error', message: 'No auth token provided' }));
       socket.close();
       return;
     }
 
-    // Extract token from protocol format (Bearer.token)
-    const token = authHeader.includes('.') 
-      ? authHeader.split('.').slice(1).join('.')
-      : authHeader.replace('Bearer ', '');
-
-    // Initialize Supabase client with the token
+    // Initialize Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     supabaseClient = createClient(supabaseUrl, supabaseKey, {
       global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    // Get authenticated user
+    // Verify user
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
     if (authError || !user) {
-      console.error("Auth error:", authError);
       socket.send(JSON.stringify({ type: 'error', message: 'Authentication failed' }));
       socket.close();
       return;
     }
     userId = user.id;
-    console.log("User authenticated:", userId);
 
     // Connect to OpenAI Realtime API
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
