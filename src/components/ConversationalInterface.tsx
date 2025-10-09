@@ -78,8 +78,10 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
         const data = JSON.parse(event.data);
         console.log("Received:", data.type);
 
-        // Handle different message types
-        if (data.type === 'error') {
+        if (data.type === 'status') {
+          console.log('[Realtime status]', data.message);
+          toast.info(data.message);
+        } else if (data.type === 'error') {
           toast.error(data.message);
           disconnect();
         } else if (data.type === 'response.audio.delta') {
