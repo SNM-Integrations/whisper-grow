@@ -5,11 +5,22 @@ export class AudioRecorder {
   private audioContext: AudioContext | null = null;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
+  private wakeLock: any = null;
 
   constructor(private onAudioData: (audioData: Float32Array) => void) {}
 
   async start() {
     try {
+      // Request wake lock to keep recording active with screen off
+      if ('wakeLock' in navigator) {
+        try {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake lock acquired - recording will stay active');
+        } catch (err) {
+          console.warn('Wake lock failed:', err);
+        }
+      }
+
       this.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           sampleRate: 24000,
@@ -57,6 +68,13 @@ export class AudioRecorder {
       this.audioContext.close();
       this.audioContext = null;
     }
+    
+    // Release wake lock
+    if (this.wakeLock) {
+      this.wakeLock.release();
+      this.wakeLock = null;
+      console.log('Wake lock released');
+    }
   }
 }
 
@@ -67,6 +85,7 @@ export class RealtimeChat {
   private recorder: AudioRecorder | null = null;
   private agentType: string;
   private meetingId?: string;
+  private wakeLock: any = null;
 
   constructor(
     private onMessage: (message: any) => void, 
@@ -105,6 +124,16 @@ export class RealtimeChat {
       };
 
       // Add local audio track
+      // Request wake lock to keep recording active with screen off
+      if ('wakeLock' in navigator) {
+        try {
+          this.wakeLock = await (navigator as any).wakeLock.request('screen');
+          console.log('[RealtimeChat] Wake lock acquired - recording will stay active');
+        } catch (err) {
+          console.warn('[RealtimeChat] Wake lock failed:', err);
+        }
+      }
+
       const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
       this.pc.addTrack(ms.getTracks()[0]);
       console.log('[RealtimeChat] Local audio track added');
@@ -369,5 +398,12 @@ export class RealtimeChat {
     this.dc?.close();
     this.pc?.close();
     this.audioEl.srcObject = null;
+    
+    // Release wake lock
+    if (this.wakeLock) {
+      this.wakeLock.release();
+      this.wakeLock = null;
+      console.log('[RealtimeChat] Wake lock released');
+    }
   }
 }

@@ -15,10 +15,21 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const wakeLockRef = useRef<any>(null);
   const maxRecordingTime = 30 * 60; // 30 minutes in seconds
 
   const startRecording = async () => {
     try {
+      // Request wake lock to keep recording active with screen off
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+          console.log('Wake lock acquired - recording will stay active');
+        } catch (err) {
+          console.warn('Wake lock failed:', err);
+        }
+      }
+
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
@@ -64,6 +75,13 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
+      
+      // Release wake lock
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release();
+        wakeLockRef.current = null;
+        console.log('Wake lock released');
+      }
     }
   };
 

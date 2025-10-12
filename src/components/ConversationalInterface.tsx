@@ -27,6 +27,7 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
   const recorderRef = useRef<AudioRecorder | null>(null);
   const audioContextRef = useRef<AudioContext | null>(null);
   const audioQueueRef = useRef<AudioQueue | null>(null);
+  const wakeLockRef = useRef<any>(null);
 
   useEffect(() => {
     // Initialize audio context
@@ -72,6 +73,17 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
           // Start recording once OpenAI is connected
           if (data.message.includes('OpenAI connected') && !recorderRef.current && audioContextRef.current) {
             console.log('[ConversationalInterface] AI ready, starting recorder...');
+            
+            // Request wake lock to keep recording active with screen off
+            if ('wakeLock' in navigator) {
+              try {
+                wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+                console.log('Wake lock acquired - recording will stay active');
+              } catch (err) {
+                console.warn('Wake lock failed:', err);
+              }
+            }
+            
             recorderRef.current = new AudioRecorder((audioData) => {
               if (wsRef.current?.readyState === WebSocket.OPEN) {
                 const base64Audio = encodeAudioForAPI(audioData);
@@ -157,6 +169,14 @@ const ConversationalInterface = ({ onNoteCreated }: ConversationalInterfaceProps
       recorderRef.current.stop();
       recorderRef.current = null;
     }
+    
+    // Release wake lock
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release();
+      wakeLockRef.current = null;
+      console.log('Wake lock released');
+    }
+    
     audioQueueRef.current?.clear();
     setIsConnected(false);
     setIsRecording(false);
