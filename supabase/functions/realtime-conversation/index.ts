@@ -203,7 +203,7 @@ Deno.serve(async (req) => {
     });
 
     // Verify user
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
     if (authError || !user) {
       console.error("Authentication failed:", authError);
       try { socket.send(JSON.stringify({ type: 'error', code: 'auth_failed', message: `Authentication failed: ${authError?.message || 'Invalid token'}` })); } catch (_) {}
@@ -211,6 +211,7 @@ Deno.serve(async (req) => {
       return;
     }
     userId = user.id;
+    console.log(`Authenticated user: ${user.id.substring(0, 8)}...`);
 
     // Connect to OpenAI Realtime API
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
