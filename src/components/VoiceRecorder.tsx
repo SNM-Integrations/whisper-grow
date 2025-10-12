@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
   const chunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const wakeLockRef = useRef<any>(null);
+  const startTimeRef = useRef<number | null>(null);
   const maxRecordingTime = 30 * 60; // 30 minutes in seconds
 
   const startRecording = async () => {
@@ -49,19 +50,20 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
         if (timerRef.current) clearInterval(timerRef.current);
       };
 
-      // Start timer
+      // Start timer - use wall clock to avoid background throttling drift
+      startTimeRef.current = Date.now();
       timerRef.current = setInterval(() => {
-        setRecordingTime(prev => {
-          if (prev >= maxRecordingTime) {
-            stopRecording();
-            toast.info("30-minute recording limit reached");
-            return prev;
-          }
-          return prev + 1;
-        });
+        const start = startTimeRef.current || Date.now();
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        if (elapsed >= maxRecordingTime) {
+          stopRecording();
+          toast.info("30-minute recording limit reached");
+          return;
+        }
+        setRecordingTime(elapsed);
       }, 1000);
 
-      mediaRecorder.start();
+      mediaRecorder.start(1000); // emit data every 1s to minimize loss
       setIsRecording(true);
       toast.success("Recording started (max 30 minutes)");
     } catch (error) {
@@ -123,7 +125,29 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
       setIsProcessing(false);
     }
   };
+  
+  // Handle backgrounding/tab hide gracefully
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.hidden && isRecording) {
+        toast.info("App moved to background, stopping to save recording (browser limitation)");
+        stopRecording();
+      }
+    };
+    const onPageHide = () => { if (isRecording) { stopRecording(); } };
+    const onBeforeUnload = () => { if (isRecording) { stopRecording(); } };
 
+    document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('pagehide', onPageHide);
+    window.addEventListener('beforeunload', onBeforeUnload);
+
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+    };
+  }, [isRecording]);
+  
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative">
