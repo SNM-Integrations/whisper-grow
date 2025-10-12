@@ -84,7 +84,9 @@ export class RealtimeChat {
       console.log('[RealtimeChat] Initializing WebRTC connection...');
       
       // Get ephemeral token from our edge function
-      const { data, error } = await supabase.functions.invoke("create-realtime-session");
+      const { data, error } = await supabase.functions.invoke("create-realtime-session", {
+        body: { agentType: this.agentType, meetingId: this.meetingId ?? null }
+      });
       
       if (error || !data?.client_secret?.value) {
         throw new Error(`Failed to get ephemeral token: ${error?.message || 'No token returned'}`);
