@@ -126,28 +126,6 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
     }
   };
   
-  // Handle backgrounding/tab hide gracefully
-  useEffect(() => {
-    const onVisibility = () => {
-      if (document.hidden && isRecording) {
-        toast.info("App moved to background, stopping to save recording (browser limitation)");
-        stopRecording();
-      }
-    };
-    const onPageHide = () => { if (isRecording) { stopRecording(); } };
-    const onBeforeUnload = () => { if (isRecording) { stopRecording(); } };
-
-    document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('pagehide', onPageHide);
-    window.addEventListener('beforeunload', onBeforeUnload);
-
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('pagehide', onPageHide);
-      window.removeEventListener('beforeunload', onBeforeUnload);
-    };
-  }, [isRecording]);
-  
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative">
