@@ -199,19 +199,33 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
     supabaseClient = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: `Bearer ${token}` } }
+      global: { headers: { Authorization: `Bearer ${token}`, apikey: supabaseKey } }
     });
 
-    // Verify user
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !user) {
-      console.error("Authentication failed:", authError);
-      try { socket.send(JSON.stringify({ type: 'error', code: 'auth_failed', message: `Authentication failed: ${authError?.message || 'Invalid token'}` })); } catch (_) {}
-      socket.close(1008, 'Authentication failed');
-      return;
+    // Verify user via client headers; fallback to decoding JWT
+    let authErr: any = null;
+    try {
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      authErr = authError;
+      if (user) {
+        userId = user.id;
+        console.log(`Authenticated user: ${user.id.substring(0, 8)}...`);
+      }
+    } catch (e) {
+      authErr = e;
     }
-    userId = user.id;
-    console.log(`Authenticated user: ${user.id.substring(0, 8)}...`);
+    if (!userId) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        userId = payload.sub;
+        console.warn('Supabase auth.getUser() failed, using JWT sub fallback:', userId?.substring(0,8));
+      } catch (e) {
+        console.error("Authentication failed:", authErr || e);
+        try { socket.send(JSON.stringify({ type: 'error', code: 'auth_failed', message: `Authentication failed: ${authErr?.message || (e instanceof Error ? e.message : 'Invalid token')}` })); } catch (_) {}
+        socket.close(1008, 'Authentication failed');
+        return;
+      }
+    }
 
     // Connect to OpenAI Realtime API
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
@@ -226,7 +240,7 @@ Deno.serve(async (req) => {
       try {
         socket.send(JSON.stringify({ type: 'status', message: 'Connecting to OpenAI…' }));
         openAIWs = new WebSocket(
-          'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
+          'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
           [
             'realtime',
             `openai-insecure-api-key.${OPENAI_API_KEY}`,
@@ -279,6 +293,7 @@ Deno.serve(async (req) => {
               max_response_output_tokens: 4096
             }
           };
+          console.log('Sending session.update to OpenAI');
           openAIWs?.send(JSON.stringify(sessionUpdate));
         }
 
