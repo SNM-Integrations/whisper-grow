@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, Square } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { App as CapacitorApp } from '@capacitor/app';
 
 interface VoiceRecorderProps {
   onTranscriptComplete: (text: string) => void;
@@ -21,30 +22,47 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
 
   const startRecording = async () => {
     try {
+      console.log('[VoiceRecorder] Starting recording...');
+      
       // Request wake lock to keep recording active with screen off
       if ('wakeLock' in navigator) {
         try {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-          console.log('Wake lock acquired - recording will stay active');
+          console.log('[VoiceRecorder] Wake lock acquired - recording will stay active');
         } catch (err) {
-          console.warn('Wake lock failed:', err);
+          console.warn('[VoiceRecorder] Wake lock failed:', err);
         }
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream);
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      
+      console.log('[VoiceRecorder] Microphone stream acquired');
+      
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm'
+      });
+      
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
       setRecordingTime(0);
 
       mediaRecorder.ondataavailable = (e) => {
         if (e.data.size > 0) {
+          console.log('[VoiceRecorder] Audio chunk received:', e.data.size, 'bytes');
           chunksRef.current.push(e.data);
         }
       };
 
       mediaRecorder.onstop = async () => {
+        console.log('[VoiceRecorder] Recording stopped, total chunks:', chunksRef.current.length);
         const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+        console.log('[VoiceRecorder] Final audio blob size:', audioBlob.size, 'bytes');
         await processAudio(audioBlob);
         stream.getTracks().forEach(track => track.stop());
         if (timerRef.current) clearInterval(timerRef.current);
@@ -56,6 +74,7 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
         const start = startTimeRef.current || Date.now();
         const elapsed = Math.floor((Date.now() - start) / 1000);
         if (elapsed >= maxRecordingTime) {
+          console.log('[VoiceRecorder] Max recording time reached');
           stopRecording();
           toast.info("30-minute recording limit reached");
           return;
@@ -65,15 +84,18 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
 
       mediaRecorder.start(1000); // emit data every 1s to minimize loss
       setIsRecording(true);
+      console.log('[VoiceRecorder] MediaRecorder started');
       toast.success("Recording started (max 30 minutes)");
     } catch (error) {
-      console.error("Error starting recording:", error);
+      console.error("[VoiceRecorder] Error starting recording:", error);
       toast.error("Failed to start recording");
     }
   };
 
   const stopRecording = () => {
+    console.log('[VoiceRecorder] Stop recording called');
     if (mediaRecorderRef.current && isRecording) {
+      console.log('[VoiceRecorder] Stopping MediaRecorder...');
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       if (timerRef.current) clearInterval(timerRef.current);
@@ -82,10 +104,35 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
       if (wakeLockRef.current) {
         wakeLockRef.current.release();
         wakeLockRef.current = null;
-        console.log('Wake lock released');
+        console.log('[VoiceRecorder] Wake lock released');
       }
     }
   };
+
+  // Handle app state changes for native app
+  useEffect(() => {
+    let appStateListener: any;
+
+    const setupAppStateListener = async () => {
+      try {
+        appStateListener = await CapacitorApp.addListener('appStateChange', (state) => {
+          console.log('[VoiceRecorder] App state changed:', state.isActive);
+          // Keep recording even when app goes to background in native mode
+        });
+        console.log('[VoiceRecorder] App state listener registered');
+      } catch (error) {
+        console.log('[VoiceRecorder] Not running in Capacitor, skipping app state listener');
+      }
+    };
+
+    setupAppStateListener();
+
+    return () => {
+      if (appStateListener) {
+        appStateListener.remove();
+      }
+    };
+  }, []);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
