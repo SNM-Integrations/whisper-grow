@@ -95,29 +95,48 @@ const VoiceRecorder = ({ onTranscriptComplete }: VoiceRecorderProps) => {
 
   const processAudio = async (audioBlob: Blob) => {
     setIsProcessing(true);
+    
+    console.log('Audio blob size:', audioBlob.size, 'bytes');
+    console.log('Audio blob type:', audioBlob.type);
+    
     try {
-      // Convert blob to base64
-      const reader = new FileReader();
-      reader.readAsDataURL(audioBlob);
+      // Convert blob to base64 in chunks to handle large files
+      const arrayBuffer = await audioBlob.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
       
-      reader.onloadend = async () => {
-        const base64Audio = reader.result?.toString().split(',')[1];
-        
-        if (!base64Audio) {
-          throw new Error('Failed to convert audio');
-        }
+      console.log('Audio buffer size:', bytes.length, 'bytes');
+      
+      // Convert to base64 in chunks
+      let base64Audio = '';
+      const chunkSize = 0x8000; // 32KB chunks
+      
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+        base64Audio += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      
+      base64Audio = btoa(base64Audio);
+      console.log('Base64 audio length:', base64Audio.length);
 
-        const { data, error } = await supabase.functions.invoke('transcribe-audio', {
-          body: { audio: base64Audio }
-        });
+      toast.info("Transcribing audio...");
+      
+      const { data, error } = await supabase.functions.invoke('transcribe-audio', {
+        body: { audio: base64Audio }
+      });
 
-        if (error) throw error;
+      if (error) {
+        console.error('Transcription error:', error);
+        throw error;
+      }
 
-        if (data?.text) {
-          onTranscriptComplete(data.text);
-          toast.success("Audio transcribed successfully");
-        }
-      };
+      console.log('Transcription result:', data);
+
+      if (data?.text) {
+        console.log('Transcribed text length:', data.text.length);
+        onTranscriptComplete(data.text);
+      } else {
+        throw new Error('No transcription returned');
+      }
     } catch (error) {
       console.error("Error processing audio:", error);
       toast.error("Failed to transcribe audio");

@@ -98,8 +98,90 @@ const Home = () => {
   };
 
   const handleTranscriptComplete = async (transcript: string) => {
+    if (!transcript.trim()) {
+      toast.error("No transcript available");
+      return;
+    }
+
+    // Auto-save in background
+    toast.info("Processing and saving...");
+    setIsSubmitting(true);
     setNoteText(transcript);
-    setInputMode("text");
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Insert the note
+      const { data: note, error: noteError } = await supabase
+        .from("notes")
+        .insert([{ content: transcript, user_id: user.id }])
+        .select()
+        .single();
+
+      if (noteError) throw noteError;
+
+      // Call categorize-note function
+      const { data: { session } } = await supabase.auth.getSession();
+      const categoryResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/categorize-note`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ noteContent: transcript }),
+        }
+      );
+
+      if (categoryResponse.ok) {
+        const { categoryId } = await categoryResponse.json();
+        await supabase
+          .from("notes")
+          .update({ category_id: categoryId })
+          .eq("id", note.id);
+      }
+
+      // Generate embeddings
+      const embeddingResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-embeddings`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token}`,
+          },
+          body: JSON.stringify({ noteId: note.id }),
+        }
+      );
+
+      // Auto-link notes
+      if (embeddingResponse.ok) {
+        await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/auto-link-notes`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${session?.access_token}`,
+            },
+            body: JSON.stringify({ noteId: note.id }),
+          }
+        );
+      }
+
+      toast.success("Thought saved!");
+      setNoteText("");
+      
+      // Navigate to dashboard after saving
+      setTimeout(() => navigate("/dashboard"), 500);
+    } catch (error: any) {
+      console.error("Error saving note:", error);
+      toast.error(error.message || "Failed to save thought");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
