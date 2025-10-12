@@ -4,7 +4,11 @@ import { toast } from 'sonner';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
 import { Mic, MicOff, Volume2 } from 'lucide-react';
 
-const VoiceInterface = () => {
+interface VoiceInterfaceProps {
+  onSpeakingChange: (speaking: boolean) => void;
+}
+
+const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -15,8 +19,10 @@ const VoiceInterface = () => {
     
     if (event.type === 'response.audio.delta') {
       setIsSpeaking(true);
+      onSpeakingChange(true);
     } else if (event.type === 'response.audio.done') {
       setIsSpeaking(false);
+      onSpeakingChange(false);
     } else if (event.type === 'input_audio_buffer.speech_started') {
       console.log('[VoiceInterface] User started speaking');
     } else if (event.type === 'input_audio_buffer.speech_stopped') {
@@ -50,6 +56,7 @@ const VoiceInterface = () => {
     chatRef.current?.disconnect();
     setIsConnected(false);
     setIsSpeaking(false);
+    onSpeakingChange(false);
     toast.info("AI Assistant Disconnected");
   };
 
