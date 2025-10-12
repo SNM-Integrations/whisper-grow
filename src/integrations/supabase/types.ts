@@ -151,6 +151,59 @@ export type Database = {
         }
         Relationships: []
       }
+      meetings: {
+        Row: {
+          calendar_event_id: string | null
+          created_at: string
+          end_time: string | null
+          id: string
+          participants: string[] | null
+          start_time: string
+          status: string
+          summary: string | null
+          title: string
+          transcript: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          calendar_event_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          participants?: string[] | null
+          start_time?: string
+          status?: string
+          summary?: string | null
+          title: string
+          transcript?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          calendar_event_id?: string | null
+          created_at?: string
+          end_time?: string | null
+          id?: string
+          participants?: string[] | null
+          start_time?: string
+          status?: string
+          summary?: string | null
+          title?: string
+          transcript?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meetings_calendar_event_id_fkey"
+            columns: ["calendar_event_id"]
+            isOneToOne: false
+            referencedRelation: "calendar_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       note_connections: {
         Row: {
           created_at: string
@@ -227,6 +280,7 @@ export type Database = {
           created_at: string
           formatted_content: string | null
           id: string
+          meeting_id: string | null
           note_type: Database["public"]["Enums"]["note_type"]
           parent_note_id: string | null
           transcript: string | null
@@ -240,6 +294,7 @@ export type Database = {
           created_at?: string
           formatted_content?: string | null
           id?: string
+          meeting_id?: string | null
           note_type?: Database["public"]["Enums"]["note_type"]
           parent_note_id?: string | null
           transcript?: string | null
@@ -253,6 +308,7 @@ export type Database = {
           created_at?: string
           formatted_content?: string | null
           id?: string
+          meeting_id?: string | null
           note_type?: Database["public"]["Enums"]["note_type"]
           parent_note_id?: string | null
           transcript?: string | null
@@ -265,6 +321,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
           {
@@ -285,6 +348,7 @@ export type Database = {
           due_date: string | null
           google_event_id: string | null
           id: string
+          meeting_id: string | null
           priority: string
           title: string
           updated_at: string
@@ -298,6 +362,7 @@ export type Database = {
           due_date?: string | null
           google_event_id?: string | null
           id?: string
+          meeting_id?: string | null
           priority?: string
           title: string
           updated_at?: string
@@ -311,6 +376,7 @@ export type Database = {
           due_date?: string | null
           google_event_id?: string | null
           id?: string
+          meeting_id?: string | null
           priority?: string
           title?: string
           updated_at?: string
@@ -322,6 +388,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_meeting_id_fkey"
+            columns: ["meeting_id"]
+            isOneToOne: false
+            referencedRelation: "meetings"
             referencedColumns: ["id"]
           },
         ]

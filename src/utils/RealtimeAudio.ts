@@ -65,10 +65,18 @@ export class RealtimeChat {
   private dc: RTCDataChannel | null = null;
   private audioEl: HTMLAudioElement;
   private recorder: AudioRecorder | null = null;
+  private agentType: string;
+  private meetingId?: string;
 
-  constructor(private onMessage: (message: any) => void) {
+  constructor(
+    private onMessage: (message: any) => void, 
+    agentType: string = 'conversation',
+    meetingId?: string
+  ) {
     this.audioEl = document.createElement("audio");
     this.audioEl.autoplay = true;
+    this.agentType = agentType;
+    this.meetingId = meetingId;
   }
 
   async init() {
@@ -186,8 +194,75 @@ export class RealtimeChat {
 
   private async handleToolCall(toolName: string, args: any) {
     console.log('[RealtimeChat] Handling tool call:', toolName);
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
 
     switch (toolName) {
+      case 'save_action_item': {
+        const { title, description, priority, owner } = args;
+        const taskDescription = [
+          description,
+          owner ? `Owner: ${owner}` : null
+        ].filter(Boolean).join('\n');
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert({
+            title,
+            description: taskDescription || null,
+            priority: priority || 'medium',
+            user_id: user.id,
+            meeting_id: this.meetingId || null,
+            completed: false
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return { success: true, task: data, message: `Action item created: ${title}` };
+      }
+
+      case 'save_decision': {
+        const { decision, context } = args;
+        const content = context ? `**Decision:** ${decision}\n\n**Context:** ${context}` : decision;
+
+        const { data, error } = await supabase
+          .from('notes')
+          .insert({
+            content,
+            user_id: user.id,
+            meeting_id: this.meetingId || null,
+            note_type: 'original'
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        // Generate embedding
+        await supabase.functions.invoke('generate-embeddings', {
+          body: { noteId: data.id, content }
+        });
+
+        return { success: true, note: data, message: 'Decision captured' };
+      }
+
+      case 'update_meeting_participants': {
+        if (!this.meetingId) {
+          return { success: false, message: 'No active meeting' };
+        }
+
+        const { participants } = args;
+        const { error } = await supabase
+          .from('meetings')
+          .update({ participants })
+          .eq('id', this.meetingId);
+
+        if (error) throw error;
+        return { success: true, message: `Updated participants: ${participants.join(', ')}` };
+      }
+
       case 'save_thought': {
         const { data, error } = await supabase.functions.invoke('process-smart-input', {
           body: { text: args.text }
