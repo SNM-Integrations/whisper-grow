@@ -38,3 +38,6 @@ verify_jwt = true
 
 [functions.get-google-oauth-url]
 verify_jwt = true
+
+[functions.stream-audio-recording]
+verify_jwt = false
