@@ -107,23 +107,53 @@ export class RealtimeChat {
         body: { agentType: this.agentType, meetingId: this.meetingId ?? null }
       });
       
-      if (error || !data?.client_secret?.value) {
-        throw new Error(`Failed to get ephemeral token: ${error?.message || 'No token returned'}`);
+      if (error) {
+        console.error('[RealtimeChat] Token fetch error:', error);
+        throw new Error(`Failed to get ephemeral token: ${error.message}`);
+      }
+      
+      if (!data?.client_secret?.value) {
+        console.error('[RealtimeChat] Invalid token response:', data);
+        throw new Error('Failed to get ephemeral token - invalid response');
       }
 
       const EPHEMERAL_KEY = data.client_secret.value;
       console.log('[RealtimeChat] Ephemeral token received');
 
       // Create peer connection
+      console.log('[RealtimeChat] Creating RTCPeerConnection...');
       this.pc = new RTCPeerConnection();
 
-      // Set up remote audio
-      this.pc.ontrack = e => {
+      // Set up remote audio with autoplay handling
+      this.pc.ontrack = async (e) => {
         console.log('[RealtimeChat] Remote audio track received');
         this.audioEl.srcObject = e.streams[0];
+        
+        // Handle autoplay restrictions
+        try {
+          await this.audioEl.play();
+          console.log('[RealtimeChat] Audio playback started');
+        } catch (playError) {
+          console.warn('[RealtimeChat] Autoplay blocked, will retry on user interaction:', playError);
+          // Retry on next user interaction
+          const retryPlay = async () => {
+            try {
+              await this.audioEl.play();
+              console.log('[RealtimeChat] Audio playback started after retry');
+              document.removeEventListener('click', retryPlay);
+              document.removeEventListener('touchstart', retryPlay);
+            } catch (e) {
+              console.error('[RealtimeChat] Audio playback failed:', e);
+            }
+          };
+          document.addEventListener('click', retryPlay, { once: true });
+          document.addEventListener('touchstart', retryPlay, { once: true });
+        }
       };
 
       // Add local audio track
+      console.log('[RealtimeChat] Requesting microphone access...');
+      
       // Request wake lock to keep recording active with screen off
       if ('wakeLock' in navigator) {
         try {
@@ -134,7 +164,16 @@ export class RealtimeChat {
         }
       }
 
-      const ms = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const ms = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          sampleRate: 24000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+      console.log('[RealtimeChat] Microphone access granted');
       this.pc.addTrack(ms.getTracks()[0]);
       console.log('[RealtimeChat] Local audio track added');
 
@@ -189,11 +228,13 @@ export class RealtimeChat {
       });
 
       // Create and set local description
+      console.log('[RealtimeChat] Creating WebRTC offer...');
       const offer = await this.pc.createOffer();
       await this.pc.setLocalDescription(offer);
       console.log('[RealtimeChat] Local description set');
 
       // Connect to OpenAI's Realtime API
+      console.log('[RealtimeChat] Connecting to OpenAI Realtime API...');
       const baseUrl = "https://api.openai.com/v1/realtime";
       const model = "gpt-4o-realtime-preview-2024-12-17";
       const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
@@ -206,7 +247,9 @@ export class RealtimeChat {
       });
 
       if (!sdpResponse.ok) {
-        throw new Error(`OpenAI SDP exchange failed: ${await sdpResponse.text()}`);
+        const errorText = await sdpResponse.text();
+        console.error('[RealtimeChat] OpenAI SDP negotiation failed:', sdpResponse.status, errorText);
+        throw new Error(`OpenAI connection failed: ${sdpResponse.status} ${errorText}`);
       }
 
       const answer = {
@@ -214,11 +257,13 @@ export class RealtimeChat {
         sdp: await sdpResponse.text(),
       };
       
+      console.log('[RealtimeChat] Setting remote description...');
       await this.pc.setRemoteDescription(answer);
-      console.log('[RealtimeChat] WebRTC connection established');
+      console.log('[RealtimeChat] WebRTC connection established successfully');
 
     } catch (error) {
       console.error('[RealtimeChat] Initialization failed:', error);
+      this.disconnect(); // Clean up on error
       throw error;
     }
   }

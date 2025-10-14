@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { Mic, MicOff, Volume2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceInterfaceProps {
   onSpeakingChange: (speaking: boolean) => void;
@@ -34,6 +35,30 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
     setIsLoading(true);
     try {
       console.log('[VoiceInterface] Starting conversation...');
+      
+      // Check authentication first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Not Authenticated", {
+          description: "Please sign in to use the AI assistant",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check microphone permissions
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop()); // Release immediately after check
+      } catch (micError) {
+        console.error('[VoiceInterface] Microphone access denied:', micError);
+        toast.error("Microphone Access Denied", {
+          description: "Please allow microphone access to use voice features",
+        });
+        setIsLoading(false);
+        return;
+      }
+
       chatRef.current = new RealtimeChat(handleMessage);
       await chatRef.current.init();
       setIsConnected(true);
@@ -43,9 +68,27 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
       });
     } catch (error) {
       console.error('[VoiceInterface] Error starting conversation:', error);
-      toast.error("Connection Failed", {
-        description: error instanceof Error ? error.message : 'Failed to start conversation',
-      });
+      
+      // Provide specific error messages
+      if (error instanceof Error) {
+        if (error.message.includes('ephemeral token')) {
+          toast.error("Connection Failed", {
+            description: "Unable to authenticate with AI service. Please try again.",
+          });
+        } else if (error.message.includes('WebRTC')) {
+          toast.error("Connection Failed", {
+            description: "Failed to establish audio connection. Please check your network.",
+          });
+        } else {
+          toast.error("Connection Failed", {
+            description: error.message,
+          });
+        }
+      } else {
+        toast.error("Connection Failed", {
+          description: "An unexpected error occurred. Please try again.",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -75,7 +118,11 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
           size="lg"
           className="rounded-full h-16 w-16 shadow-lg"
         >
-          <Mic className="h-6 w-6" />
+          {isLoading ? (
+            <Loader2 className="h-6 w-6 animate-spin" />
+          ) : (
+            <Mic className="h-6 w-6" />
+          )}
         </Button>
       ) : (
         <div className="flex flex-col items-center gap-2">

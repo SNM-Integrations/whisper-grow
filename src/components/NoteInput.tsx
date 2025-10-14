@@ -15,7 +15,7 @@ interface NoteInputProps {
 }
 
 const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
-  const [inputMode, setInputMode] = useState<"text" | "conversation" | "upload">("text");
+  const [inputMode, setInputMode] = useState<"text" | "upload">("text");
   const [noteText, setNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -310,22 +310,13 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
           Text
         </Button>
         <Button
-          variant={inputMode === "conversation" ? "default" : "outline"}
-          size="sm"
-          onClick={() => setInputMode("conversation")}
-          className="flex-1"
-        >
-          <Mic className="h-4 w-4 mr-2" />
-          AI Conversation
-        </Button>
-        <Button
           variant={inputMode === "upload" ? "default" : "outline"}
           size="sm"
           onClick={() => setInputMode("upload")}
           className="flex-1"
         >
           <Upload className="h-4 w-4 mr-2" />
-          Upload
+          Upload Audio
         </Button>
       </div>
 
@@ -345,17 +336,6 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
             <Send className="h-4 w-4 mr-2" />
             {isSubmitting ? "Saving..." : "Save Thought"}
           </Button>
-        </div>
-      ) : inputMode === "conversation" ? (
-        <div className="py-8">
-          <Suspense fallback={
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm text-muted-foreground">Loading AI Assistant...</p>
-            </div>
-          }>
-            <ConversationalInterface onNoteCreated={onNoteCreated} />
-          </Suspense>
         </div>
       ) : (
         <div className="py-8">
