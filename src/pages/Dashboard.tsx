@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,13 @@ const Dashboard = () => {
   const [showObsidianView, setShowObsidianView] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showMeetingMode, setShowMeetingMode] = useState(false);
+
+  // Ensure dashboard is only accessible when signed in
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) navigate('/auth');
+    });
+  }, [navigate]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
