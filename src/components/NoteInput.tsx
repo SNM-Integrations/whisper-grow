@@ -1,12 +1,10 @@
-import { useState, lazy, Suspense } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Mic, Type, Send, Upload, Loader2 } from "lucide-react";
+import { Mic, Type, Send, Upload } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import AudioUpload from "./AudioUpload";
-
-// Lazy load the conversational interface to avoid loading order issues
-const ConversationalInterface = lazy(() => import("./ConversationalInterface"));
+import VoiceRecorder from "./VoiceRecorder";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -15,7 +13,7 @@ interface NoteInputProps {
 }
 
 const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
-  const [inputMode, setInputMode] = useState<"text" | "upload">("text");
+  const [inputMode, setInputMode] = useState<"text" | "voice" | "upload">("text");
   const [noteText, setNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -310,13 +308,22 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
           Text
         </Button>
         <Button
+          variant={inputMode === "voice" ? "default" : "outline"}
+          size="sm"
+          onClick={() => setInputMode("voice")}
+          className="flex-1"
+        >
+          <Mic className="h-4 w-4 mr-2" />
+          Voice
+        </Button>
+        <Button
           variant={inputMode === "upload" ? "default" : "outline"}
           size="sm"
           onClick={() => setInputMode("upload")}
           className="flex-1"
         >
           <Upload className="h-4 w-4 mr-2" />
-          Upload Audio
+          Upload
         </Button>
       </div>
 
@@ -336,6 +343,10 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
             <Send className="h-4 w-4 mr-2" />
             {isSubmitting ? "Saving..." : "Save Thought"}
           </Button>
+        </div>
+      ) : inputMode === "voice" ? (
+        <div className="py-8">
+          <VoiceRecorder onTranscriptComplete={handleTranscriptComplete} />
         </div>
       ) : (
         <div className="py-8">

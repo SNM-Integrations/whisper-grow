@@ -64,6 +64,15 @@ const Dashboard = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => navigate('/')}
+              className="gap-2"
+            >
+              <Brain className="h-4 w-4" />
+              Home
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => navigate('/settings')}
               className="gap-2"
             >
