@@ -21,18 +21,47 @@ const Dashboard = () => {
   const [showObsidianView, setShowObsidianView] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showMeetingMode, setShowMeetingMode] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // Ensure dashboard is only accessible when signed in
+  // Check authentication on mount
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) navigate('/auth');
-    });
+    const checkAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          navigate('/auth', { replace: true });
+        }
+      } catch (error) {
+        console.error('Auth check error:', error);
+        navigate('/auth', { replace: true });
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    
+    checkAuth();
   }, [navigate]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/auth');
+    try {
+      await supabase.auth.signOut();
+      navigate('/auth', { replace: true });
+    } catch (error) {
+      console.error('Sign out error:', error);
+    }
   };
+
+  // Show loading while checking auth
+  if (isCheckingAuth) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="h-12 w-12 rounded-full border-4 border-primary border-t-transparent animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleNoteCreated = () => {
     setRefreshTrigger(prev => prev + 1);
