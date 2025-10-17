@@ -1,5 +1,39 @@
 import { supabase } from "@/integrations/supabase/client";
 
+class CircularAudioBuffer {
+  private buffer: Float32Array;
+  private writePos = 0;
+  private readonly BUFFER_DURATION = 30; // seconds
+  private readonly SAMPLE_RATE = 24000;
+  private size: number;
+
+  constructor() {
+    this.size = this.BUFFER_DURATION * this.SAMPLE_RATE;
+    this.buffer = new Float32Array(this.size);
+  }
+
+  append(chunk: Float32Array) {
+    for (let i = 0; i < chunk.length; i++) {
+      this.buffer[this.writePos] = chunk[i];
+      this.writePos = (this.writePos + 1) % this.size;
+    }
+  }
+
+  getBuffer(): Float32Array {
+    // Return the buffer in chronological order
+    const result = new Float32Array(this.size);
+    for (let i = 0; i < this.size; i++) {
+      result[i] = this.buffer[(this.writePos + i) % this.size];
+    }
+    return result;
+  }
+
+  clear() {
+    this.buffer.fill(0);
+    this.writePos = 0;
+  }
+}
+
 export class AudioRecorder {
   private stream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
@@ -86,6 +120,7 @@ export class RealtimeChat {
   private agentType: string;
   private meetingId?: string;
   private wakeLock: any = null;
+  private audioBuffer: CircularAudioBuffer;
 
   constructor(
     private onMessage: (message: any) => void, 
@@ -96,6 +131,7 @@ export class RealtimeChat {
     this.audioEl.autoplay = true;
     this.agentType = agentType;
     this.meetingId = meetingId;
+    this.audioBuffer = new CircularAudioBuffer();
   }
 
   async init() {
@@ -408,6 +444,29 @@ export class RealtimeChat {
 
         if (error) throw error;
         return { events: data };
+      }
+
+      case 'create_calendar_event': {
+        const { title, start_time, end_time, description, location } = args;
+        
+        // Default end time to 1 hour after start if not provided
+        const endTime = end_time || new Date(new Date(start_time).getTime() + 3600000).toISOString();
+
+        const { data, error } = await supabase
+          .from('calendar_events')
+          .insert({
+            title,
+            start_time,
+            end_time: endTime,
+            description: description || null,
+            location: location || null,
+            user_id: user.id
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+        return { success: true, event: data, message: `Added to calendar: ${title}` };
       }
 
       default:

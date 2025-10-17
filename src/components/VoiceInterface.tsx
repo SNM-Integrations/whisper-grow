@@ -2,17 +2,20 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { RealtimeChat } from '@/utils/RealtimeAudio';
-import { Mic, MicOff, Volume2, Loader2 } from 'lucide-react';
+import { Mic, MicOff, Volume2, Loader2, Ear } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
 interface VoiceInterfaceProps {
   onSpeakingChange: (speaking: boolean) => void;
 }
 
+type AIMode = 'active' | 'passive' | 'thinking' | 'speaking';
+
 const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [aiMode, setAiMode] = useState<AIMode>('active');
   const chatRef = useRef<RealtimeChat | null>(null);
 
   const handleMessage = (event: any) => {
@@ -20,14 +23,24 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
     
     if (event.type === 'response.audio.delta') {
       setIsSpeaking(true);
+      setAiMode('speaking');
       onSpeakingChange(true);
     } else if (event.type === 'response.audio.done') {
       setIsSpeaking(false);
+      setAiMode('active');
       onSpeakingChange(false);
     } else if (event.type === 'input_audio_buffer.speech_started') {
       console.log('[VoiceInterface] User started speaking');
     } else if (event.type === 'input_audio_buffer.speech_stopped') {
       console.log('[VoiceInterface] User stopped speaking');
+    } else if (event.type === 'response.audio_transcript.delta') {
+      // Detect mode from AI transcript
+      const transcript = event.delta?.toLowerCase() || '';
+      if (transcript.includes("i'm listening") || transcript.includes("go ahead") || transcript.includes("listening")) {
+        setAiMode('passive');
+      }
+    } else if (event.type === 'response.created') {
+      setAiMode('thinking');
     }
   };
 
@@ -109,6 +122,37 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
     };
   }, []);
 
+  const getModeDisplay = () => {
+    switch (aiMode) {
+      case 'passive':
+        return {
+          icon: <Ear className="h-5 w-5 text-muted-foreground" />,
+          text: "Recording your thoughts...",
+          color: "text-muted-foreground"
+        };
+      case 'thinking':
+        return {
+          icon: <Loader2 className="h-5 w-5 text-primary animate-spin" />,
+          text: "Analyzing context...",
+          color: "text-primary"
+        };
+      case 'speaking':
+        return {
+          icon: <Volume2 className="h-5 w-5 text-primary animate-pulse" />,
+          text: "AI is speaking...",
+          color: "text-primary"
+        };
+      default: // active
+        return {
+          icon: <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse" />,
+          text: "AI Assistant Active",
+          color: "text-foreground"
+        };
+    }
+  };
+
+  const modeDisplay = getModeDisplay();
+
   return (
     <div className="fixed bottom-8 right-8 flex flex-col items-center gap-4 z-50">
       {!isConnected ? (
@@ -127,17 +171,10 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
       ) : (
         <div className="flex flex-col items-center gap-2">
           <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-full px-4 py-2 shadow-lg">
-            {isSpeaking ? (
-              <>
-                <Volume2 className="h-5 w-5 text-primary animate-pulse" />
-                <span className="text-sm font-medium">AI is speaking...</span>
-              </>
-            ) : (
-              <>
-                <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse" />
-                <span className="text-sm font-medium">Listening...</span>
-              </>
-            )}
+            {modeDisplay.icon}
+            <span className={`text-sm font-medium ${modeDisplay.color}`}>
+              {modeDisplay.text}
+            </span>
           </div>
           <Button 
             onClick={endConversation}

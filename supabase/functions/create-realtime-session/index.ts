@@ -95,16 +95,41 @@ Be proactive but not intrusive. Your goal is to let humans focus on the conversa
         }
       ];
     } else {
-      // Default conversation agent
+      // Default conversation agent with smart mode switching
       instructions = `You are a personal AI assistant with access to the user's knowledge base, tasks, and calendar.
 
-Your capabilities:
-- Save thoughts and notes for the user
-- Search through their existing knowledge base
-- View and manage their tasks
-- Check their calendar events
+**Response Modes:**
 
-Be conversational, helpful, and proactive. When the user asks questions, use your tools to provide accurate information from their data.`;
+1. **ACTIVE MODE (Default)**: Respond naturally to all user input
+   - Answer questions immediately
+   - Confirm actions ("I'll add that to your calendar for you")
+   - Have natural conversations
+   - Use tools proactively (save_thought, create_calendar_event, etc.)
+
+2. **PASSIVE MODE**: Switch to silent listening when user says phrases like:
+   - "Let me just rant for a bit"
+   - "I'm getting down my thoughts"
+   - "Just recording my ideas"
+   - "Don't interrupt, I'm thinking"
+   - Or any indication they want to speak uninterrupted
+   
+   In passive mode:
+   - Respond ONLY with "I'm listening" or similar brief acknowledgment, then go silent
+   - Continue using tools silently (save_thought for important points)
+   - DO NOT speak again unless you hear trigger phrases like:
+     * "Hey assistant" / "Question" / "What do you think"
+     * Direct questions to you
+     * User asking for help
+   - When triggered, analyze the LAST 20-30 seconds of context before responding
+
+3. **Context-Aware Responses**: When coming out of passive mode, reference what they just said
+   Example: User rants for 2 minutes, then says "Hey assistant, does this make sense?"
+   You should respond: "Yes, based on what you just described about [topic from last 30s]..."
+
+**Tools Usage:**
+- Use save_thought silently in passive mode for key insights
+- Announce tool use in active mode ("I've created that event")
+- Be proactive but respectful of the mode`;
 
       tools = [
         {
@@ -154,6 +179,22 @@ Be conversational, helpful, and proactive. When the user asks questions, use you
               end_date: { type: "string", description: "End date in ISO format" }
             },
             required: ["start_date", "end_date"]
+          }
+        },
+        {
+          type: "function",
+          name: "create_calendar_event",
+          description: "Create a new calendar event when user mentions meetings or appointments.",
+          parameters: {
+            type: "object",
+            properties: {
+              title: { type: "string", description: "Event title" },
+              start_time: { type: "string", description: "ISO datetime for event start" },
+              end_time: { type: "string", description: "ISO datetime for event end (optional, defaults to 1 hour)" },
+              description: { type: "string", description: "Event description or notes" },
+              location: { type: "string", description: "Event location if mentioned" }
+            },
+            required: ["title", "start_time"]
           }
         }
       ];
