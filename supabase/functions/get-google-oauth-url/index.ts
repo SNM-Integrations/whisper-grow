@@ -14,11 +14,20 @@ serve(async (req) => {
     const GOOGLE_CLIENT_ID = Deno.env.get('GOOGLE_CLIENT_ID');
     
     if (!GOOGLE_CLIENT_ID) {
+      console.error('GOOGLE_CLIENT_ID not configured');
       throw new Error('Google OAuth not configured. Please set GOOGLE_CLIENT_ID secret.');
     }
 
-    // Get the origin from the request
-    const origin = req.headers.get('origin') || 'https://eed02dec-e8b2-4e5e-a52f-9a4de393a610.lovableproject.com';
+    // Get origin from request body, referer header, or origin header
+    const body = await req.json().catch(() => ({}));
+    const origin = body.origin || 
+                   req.headers.get('referer')?.split('?')[0].replace(/\/$/, '') || 
+                   req.headers.get('origin');
+    
+    if (!origin) {
+      console.error('No origin provided in request');
+      throw new Error('Unable to determine origin for OAuth redirect');
+    }
     
     // Build the redirect URI - this is where Google will send the user back with the auth code
     const redirectUri = `${origin}/settings?oauth=google`;
@@ -26,14 +35,18 @@ serve(async (req) => {
     const scope = 'https://www.googleapis.com/auth/calendar';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;
 
-    console.log('Generated OAuth URL with redirect:', redirectUri);
+    console.log('Generated OAuth URL:', {
+      origin,
+      redirectUri,
+      clientIdConfigured: !!GOOGLE_CLIENT_ID
+    });
 
     return new Response(JSON.stringify({ authUrl }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in get-google-oauth-url:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,

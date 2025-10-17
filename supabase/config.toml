@@ -37,6 +37,9 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.get-google-oauth-url]
+verify_jwt = false
+
+[functions.check-google-connection]
 verify_jwt = true
 
 [functions.stream-audio-recording]

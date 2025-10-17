@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Save, RotateCcw, Trash2, Info } from "lucide-react";
+import { ArrowLeft, Save, RotateCcw, Trash2, Info, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -28,6 +28,17 @@ interface AIKnowledgeStats {
   totalNotes: number;
   embeddingsCount: number;
   topCategories: { name: string; count: number }[];
+}
+
+interface GoogleConnectionStatus {
+  connected: boolean;
+  email?: string;
+  expiresAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  isExpired?: boolean;
+  needsRefresh?: boolean;
+  message?: string;
 }
 
 const DEFAULT_SETTINGS: AISettings = {
@@ -108,13 +119,54 @@ const Settings = () => {
     embeddingsCount: 0,
     topCategories: []
   });
+  const [googleConnection, setGoogleConnection] = useState<GoogleConnectionStatus>({ connected: false });
+  const [isCheckingConnection, setIsCheckingConnection] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchSettings();
     fetchCategories();
     fetchKnowledgeStats();
+    checkGoogleConnection();
     handleOAuthCallback();
   }, []);
+
+  const checkGoogleConnection = async () => {
+    setIsCheckingConnection(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('check-google-connection');
+      
+      if (error) throw error;
+      
+      setGoogleConnection(data || { connected: false });
+    } catch (error) {
+      console.error('Error checking Google connection:', error);
+      setGoogleConnection({ connected: false, message: 'Failed to check connection status' });
+    } finally {
+      setIsCheckingConnection(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { error } = await supabase
+        .from('google_auth_tokens')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast.success('Disconnected from Google Calendar');
+      setGoogleConnection({ connected: false });
+    } catch (error) {
+      console.error('Error disconnecting:', error);
+      toast.error('Failed to disconnect from Google Calendar');
+    }
+  };
 
   const handleOAuthCallback = async () => {
     // Check if we're returning from Google OAuth
@@ -124,23 +176,34 @@ const Settings = () => {
     
     if (code && oauth === 'google') {
       try {
+        setIsConnecting(true);
         toast.info('Connecting to Google Calendar...');
+        
+        // Get the current origin
+        const origin = window.location.origin;
         
         // Send the code to our backend to exchange for tokens
         const { data, error } = await supabase.functions.invoke('google-auth-callback', {
-          body: { code }
+          body: { code, origin }
         });
         
         if (error) throw error;
+        if (!data?.success) throw new Error('Failed to complete OAuth callback');
         
         toast.success('Successfully connected to Google Calendar!');
+        
+        // Refresh connection status
+        await checkGoogleConnection();
         
         // Clean up URL
         window.history.replaceState({}, '', '/settings');
       } catch (error) {
         console.error('OAuth callback error:', error);
-        toast.error('Failed to connect Google Calendar');
+        const errorMsg = error instanceof Error ? error.message : 'Failed to connect Google Calendar';
+        toast.error(errorMsg);
         window.history.replaceState({}, '', '/settings');
+      } finally {
+        setIsConnecting(false);
       }
     }
   };
@@ -619,69 +682,168 @@ const Settings = () => {
 
           {/* Google Calendar Tab */}
           <TabsContent value="google" className="space-y-6">
+            {/* Connection Status */}
             <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
-              <h3 className="text-lg font-semibold mb-4">Google Calendar Integration</h3>
-              <p className="text-muted-foreground mb-6">
-                Connect your Google Calendar to sync events between your Second Brain and Google.
-              </p>
-              
-              <div className="space-y-4">
-                <Button 
-                  onClick={async () => {
-                    try {
-                      // Get Google Client ID from backend
-                      const { data, error } = await supabase.functions.invoke('get-google-oauth-url');
-                      
-                      if (error) throw error;
-                      if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
-                      
-                      // Redirect to Google OAuth (force top-level to bypass iframe blockers)
-                      if (window.top) { (window.top as Window).location.href = data.authUrl; } else { window.location.href = data.authUrl; }
-                    } catch (error) {
-                      console.error('OAuth error:', error);
-                      toast.error('Failed to initiate Google connection. Please check configuration.');
-                    }
-                  }}
-                  className="w-full"
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold">Connection Status</h3>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={checkGoogleConnection}
+                  disabled={isCheckingConnection}
                 >
-                  Connect Google Calendar
+                  <RefreshCw className={`h-4 w-4 ${isCheckingConnection ? 'animate-spin' : ''}`} />
                 </Button>
-                
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-2">Manual Sync</h4>
-                  <p className="text-sm text-muted-foreground mb-3">
-                    Sync your events with Google Calendar manually:
-                  </p>
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={async () => {
-                        try {
-                          toast.info('Pulling events from Google Calendar...');
-                          const { error } = await supabase.functions.invoke('sync-from-google-calendar');
-                          if (error) throw error;
-                          toast.success('Events synced from Google Calendar');
-                        } catch (error) {
-                          console.error('Sync error:', error);
-                          toast.error('Failed to sync from Google Calendar');
-                        }
-                      }}
-                      variant="outline"
-                      className="flex-1"
-                    >
-                      Pull from Google
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="border-t pt-4">
-                  <h4 className="font-medium mb-2">How It Works</h4>
-                  <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-                    <li>Events created in your calendar are automatically synced to Google</li>
-                    <li>Use "Pull from Google" to import Google Calendar events</li>
-                    <li>Changes made in either place can be synced manually</li>
-                  </ul>
-                </div>
               </div>
+
+              {isCheckingConnection ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  Checking connection...
+                </div>
+              ) : googleConnection.connected ? (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="font-medium text-green-700 dark:text-green-400">Connected to Google Calendar</p>
+                      {googleConnection.email && (
+                        <p className="text-sm text-muted-foreground mt-1">
+                          Account: {googleConnection.email}
+                        </p>
+                      )}
+                      {googleConnection.createdAt && (
+                        <p className="text-sm text-muted-foreground">
+                          Connected: {new Date(googleConnection.createdAt).toLocaleDateString()}
+                        </p>
+                      )}
+                      {googleConnection.isExpired && (
+                        <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                          ⚠️ Token expired - please reconnect
+                        </p>
+                      )}
+                      {googleConnection.needsRefresh && !googleConnection.isExpired && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Token will be refreshed on next sync
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="outline" className="w-full">
+                        Disconnect Google Calendar
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Disconnect Google Calendar</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to disconnect your Google Calendar? This will remove your access tokens. You can reconnect anytime.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleDisconnectGoogle}>
+                          Disconnect
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-start gap-3 p-4 rounded-lg bg-muted/50 border border-border/50">
+                    <XCircle className="h-5 w-5 text-muted-foreground mt-0.5" />
+                    <div>
+                      <p className="font-medium">Not Connected</p>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Connect your Google Calendar to sync events automatically
+                      </p>
+                    </div>
+                  </div>
+
+                  <Button 
+                    onClick={async () => {
+                      try {
+                        setIsConnecting(true);
+                        // Get the current origin
+                        const origin = window.location.origin;
+                        
+                        // Get Google OAuth URL from backend
+                        const { data, error } = await supabase.functions.invoke('get-google-oauth-url', {
+                          body: { origin }
+                        });
+                        
+                        if (error) throw error;
+                        if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
+                        
+                        // Redirect to Google OAuth
+                        window.location.href = data.authUrl;
+                      } catch (error) {
+                        console.error('OAuth error:', error);
+                        const errorMsg = error instanceof Error ? error.message : 'Failed to initiate Google connection';
+                        toast.error(errorMsg);
+                        setIsConnecting(false);
+                      }
+                    }}
+                    className="w-full"
+                    disabled={isConnecting}
+                  >
+                    {isConnecting ? 'Connecting...' : 'Connect Google Calendar'}
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+            {/* Sync Options */}
+            {googleConnection.connected && (
+              <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+                <h3 className="text-lg font-semibold mb-4">Sync Options</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manually sync your events with Google Calendar:
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={async () => {
+                      try {
+                        setIsSyncing(true);
+                        toast.info('Pulling events from Google Calendar...');
+                        const { error } = await supabase.functions.invoke('sync-from-google-calendar');
+                        if (error) throw error;
+                        toast.success('Events synced from Google Calendar');
+                      } catch (error) {
+                        console.error('Sync error:', error);
+                        const errorMsg = error instanceof Error ? error.message : 'Failed to sync from Google Calendar';
+                        toast.error(errorMsg);
+                      } finally {
+                        setIsSyncing(false);
+                      }
+                    }}
+                    variant="outline"
+                    className="flex-1"
+                    disabled={isSyncing || googleConnection.isExpired}
+                  >
+                    {isSyncing ? 'Syncing...' : 'Pull from Google'}
+                  </Button>
+                </div>
+                {googleConnection.isExpired && (
+                  <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                    Please reconnect to sync events
+                  </p>
+                )}
+              </Card>
+            )}
+
+            {/* Information Card */}
+            <Card className="p-6 shadow-soft border-border/50 bg-card/80 backdrop-blur">
+              <h3 className="text-lg font-semibold mb-4">How It Works</h3>
+              <ul className="text-sm text-muted-foreground space-y-2 list-disc list-inside">
+                <li>Connect your Google account to enable calendar sync</li>
+                <li>Use "Pull from Google" to import events from Google Calendar</li>
+                <li>Events are stored in your local calendar</li>
+                <li>Your connection is secure and can be disconnected anytime</li>
+              </ul>
             </Card>
           </TabsContent>
 

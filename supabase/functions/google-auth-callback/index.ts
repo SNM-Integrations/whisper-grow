@@ -12,10 +12,16 @@ serve(async (req) => {
   }
 
   try {
-    const { code } = await req.json();
+    const { code, origin } = await req.json();
+    
+    if (!code) {
+      throw new Error('No authorization code provided');
+    }
+    
     const authHeader = req.headers.get('authorization');
     
     if (!authHeader) {
+      console.error('No authorization header in callback');
       throw new Error('No authorization header');
     }
 
@@ -26,7 +32,10 @@ serve(async (req) => {
     });
 
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    if (!user) {
+      console.error('Failed to get authenticated user');
+      throw new Error('Not authenticated');
+    }
 
     console.log('Processing Google OAuth callback for user:', user.id);
 
@@ -34,12 +43,21 @@ serve(async (req) => {
     const GOOGLE_CLIENT_SECRET = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
     if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+      console.error('Google OAuth credentials not configured');
       throw new Error('Google OAuth credentials not configured');
     }
 
     // Build redirect URI dynamically to match initial auth URL
-    const origin = req.headers.get('origin') || 'https://eed02dec-e8b2-4e5e-a52f-9a4de393a610.lovableproject.com';
-    const redirectUri = `${origin}/settings?oauth=google`;
+    const requestOrigin = origin || req.headers.get('origin') || req.headers.get('referer')?.split('?')[0].replace(/\/$/, '');
+    
+    if (!requestOrigin) {
+      console.error('No origin provided for redirect URI');
+      throw new Error('Unable to determine origin for redirect URI');
+    }
+    
+    const redirectUri = `${requestOrigin}/settings?oauth=google`;
+    
+    console.log('Using redirect URI:', redirectUri);
 
     // Exchange authorization code for tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -58,29 +76,51 @@ serve(async (req) => {
 
     if (!tokenResponse.ok) {
       const errorText = await tokenResponse.text();
-      console.error('Token exchange error:', errorText);
-      throw new Error('Failed to exchange authorization code');
+      console.error('Token exchange error:', {
+        status: tokenResponse.status,
+        statusText: tokenResponse.statusText,
+        error: errorText,
+        redirectUri
+      });
+      throw new Error(`Failed to exchange authorization code: ${tokenResponse.statusText}`);
     }
 
     const tokens = await tokenResponse.json();
-    console.log('Received tokens from Google');
+    console.log('Received tokens from Google:', {
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token,
+      expiresIn: tokens.expires_in
+    });
+
+    if (!tokens.access_token) {
+      console.error('No access token in response');
+      throw new Error('No access token received from Google');
+    }
 
     // Calculate expiration time
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
-    // Store tokens in database
+    // Store tokens in database - only update refresh_token if provided
+    const upsertData: any = {
+      user_id: user.id,
+      access_token: tokens.access_token,
+      expires_at: expiresAt,
+    };
+    
+    // Google only provides refresh_token on first authorization or when prompt=consent
+    if (tokens.refresh_token) {
+      upsertData.refresh_token = tokens.refresh_token;
+    }
+
     const { error: upsertError } = await supabase
       .from('google_auth_tokens')
-      .upsert({
-        user_id: user.id,
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: expiresAt,
+      .upsert(upsertData, {
+        onConflict: 'user_id'
       });
 
     if (upsertError) {
       console.error('Error storing tokens:', upsertError);
-      throw upsertError;
+      throw new Error(`Failed to store tokens: ${upsertError.message}`);
     }
 
     console.log('Successfully stored Google tokens');
