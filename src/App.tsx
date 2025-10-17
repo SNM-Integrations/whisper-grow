@@ -10,8 +10,6 @@ import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
-
 const ClientToasters = () => {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -25,6 +23,8 @@ const ClientToasters = () => {
 };
 
 const App = () => {
+  const [queryClient] = useState(() => new QueryClient());
+  
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
