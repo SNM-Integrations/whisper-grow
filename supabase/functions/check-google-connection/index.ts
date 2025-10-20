@@ -24,15 +24,19 @@ serve(async (req) => {
       throw new Error('Supabase configuration missing');
     }
     
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Extract the JWT token and create an RLS-aware client for DB access
+    const token = authHeader.replace('Bearer ', '');
+    const db = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) throw new Error('Not authenticated');
 
     // Get tokens from database
-    const { data: tokens, error: tokensError } = await supabase
+    const { data: tokens, error: tokensError } = await db
       .from('google_auth_tokens')
       .select('*')
       .eq('user_id', user.id)
