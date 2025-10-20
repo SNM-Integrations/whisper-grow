@@ -7,7 +7,7 @@ import { Slider } from "@/components/ui/slider";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft, Save, RotateCcw, Trash2, Info, CheckCircle2, XCircle, RefreshCw } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+// Removed useNavigate - using window.location for back nav
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
@@ -109,7 +109,7 @@ Examples of good categorization thinking:
 };
 
 const Settings = () => {
-  const navigate = useNavigate();
+  // Removed navigate - using window.location for back nav
   const [settings, setSettings] = useState<AISettings>(DEFAULT_SETTINGS);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isSaving, setIsSaving] = useState(false);
@@ -438,7 +438,7 @@ const Settings = () => {
         <div className="container mx-auto px-6 py-4">
           <Button
             variant="ghost"
-            onClick={() => navigate("/")}
+            onClick={() => (window.location.href = "/")}
             className="gap-2"
           >
             <ArrowLeft className="h-4 w-4" />
