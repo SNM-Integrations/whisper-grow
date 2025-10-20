@@ -812,18 +812,13 @@ const Settings = () => {
                         if (error) throw error;
                         if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
                         
-                        // Navigate to OAuth in same tab when not inside iframe; open new tab if inside iframe or popup required
+                        // Always navigate in the current/top tab to avoid duplicate windows
                         const authUrl = data.authUrl as string;
-                        const inIframe = window.self !== window.top;
-                        if (inIframe) {
-                          const win = window.open(authUrl, '_blank', 'noopener,noreferrer');
-                          if (!win) {
-                            // Fallback: try top-level redirect
-                            try { (window.top ?? window).location.href = authUrl; } catch {
-                              window.location.href = authUrl;
-                            }
-                          }
-                        } else {
+                        try {
+                          // Try to replace the top-level browsing context (if inside iframe)
+                          (window.top ?? window).location.href = authUrl;
+                        } catch {
+                          // Fallback to navigating the current frame
                           window.location.href = authUrl;
                         }
                       } catch (error) {
