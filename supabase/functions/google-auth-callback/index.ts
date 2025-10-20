@@ -30,10 +30,15 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Separate clients: one for auth, one with user JWT for DB (RLS-aware)
+    const authClient = createClient(supabaseUrl, supabaseKey);
+    const db = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
+    });
 
     // Use the token directly with getUser to properly authenticate
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    const { data: { user }, error: userError } = await authClient.auth.getUser(token);
     if (userError || !user) {
       console.error('Failed to get authenticated user:', userError);
       throw new Error('Not authenticated');
@@ -101,7 +106,7 @@ serve(async (req) => {
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
     // Check if a token row already exists
-    const { data: existing, error: existingErr } = await supabase
+    const { data: existing, error: existingErr } = await db
       .from('google_auth_tokens')
       .select('id, refresh_token')
       .eq('user_id', user.id)
@@ -130,7 +135,7 @@ serve(async (req) => {
       upsertData.refresh_token = tokens.refresh_token;
     }
 
-    const { error: upsertError } = await supabase
+    const { error: upsertError } = await db
       .from('google_auth_tokens')
       .upsert(upsertData, {
         onConflict: 'user_id'
