@@ -47,15 +47,13 @@ serve(async (req) => {
       throw new Error('Google OAuth credentials not configured');
     }
 
-    // Build redirect URI dynamically to match initial auth URL
-    const requestOrigin = origin || req.headers.get('origin') || req.headers.get('referer')?.split('?')[0].replace(/\/$/, '');
-    
-    if (!requestOrigin) {
+    // Build redirect URI to match initial auth URL
+    if (!origin) {
       console.error('No origin provided for redirect URI');
-      throw new Error('Unable to determine origin for redirect URI');
+      throw new Error('Origin is required for redirect URI');
     }
     
-    const redirectUri = `${requestOrigin}/settings?oauth=google`;
+    const redirectUri = `${origin}/settings`;
     
     console.log('Using redirect URI:', redirectUri);
 

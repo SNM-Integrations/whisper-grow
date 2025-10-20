@@ -18,19 +18,17 @@ serve(async (req) => {
       throw new Error('Google OAuth not configured. Please set GOOGLE_CLIENT_ID secret.');
     }
 
-    // Get origin from request body, referer header, or origin header
+    // Get origin from request body
     const body = await req.json().catch(() => ({}));
-    const origin = body.origin || 
-                   req.headers.get('referer')?.split('?')[0].replace(/\/$/, '') || 
-                   req.headers.get('origin');
+    const origin = body.origin;
     
     if (!origin) {
       console.error('No origin provided in request');
-      throw new Error('Unable to determine origin for OAuth redirect');
+      throw new Error('Origin is required for OAuth redirect');
     }
     
-    // Build the redirect URI - this is where Google will send the user back with the auth code
-    const redirectUri = `${origin}/settings?oauth=google`;
+    // Build the redirect URI - this MUST match exactly what's in Google Cloud Console
+    const redirectUri = `${origin}/settings`;
     
     const scope = 'https://www.googleapis.com/auth/calendar';
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}&response_type=code&scope=${encodeURIComponent(scope)}&access_type=offline&prompt=consent`;

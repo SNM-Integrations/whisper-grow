@@ -172,9 +172,10 @@ const Settings = () => {
     // Check if we're returning from Google OAuth
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
-    const oauth = params.get('oauth');
+    const scope = params.get('scope');
     
-    if (code && oauth === 'google') {
+    // Google OAuth callback includes both 'code' and 'scope' parameters
+    if (code && scope?.includes('calendar')) {
       try {
         setIsConnecting(true);
         toast.info('Connecting to Google Calendar...');
