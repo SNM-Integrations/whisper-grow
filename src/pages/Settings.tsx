@@ -201,6 +201,11 @@ const Settings = () => {
         });
         
         if (error) throw error;
+        if (data?.needsReconsent) {
+          toast.error(data.error || 'Google didn\'t return a refresh token. Please remove access and reconnect.');
+          window.history.replaceState({}, '', '/settings');
+          return;
+        }
         if (!data?.success) throw new Error('Failed to complete OAuth callback');
         
         toast.success('Successfully connected to Google Calendar!');

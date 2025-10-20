@@ -98,14 +98,32 @@ serve(async (req) => {
     // Calculate expiration time
     const expiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString();
 
+    // Check if a token row already exists
+    const { data: existing, error: existingErr } = await supabase
+      .from('google_auth_tokens')
+      .select('id, refresh_token')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (existingErr) {
+      console.error('Error checking existing token row:', existingErr);
+    }
+
+    // If this is a first-time save and no refresh_token returned, instruct user to re-consent
+    if (!existing && !tokens.refresh_token) {
+      const msg = 'Google did not return a refresh token. Please remove access for Finn at https://myaccount.google.com/permissions and connect again.';
+      console.error(msg);
+      return new Response(JSON.stringify({ success: false, error: msg, needsReconsent: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Store tokens in database - only update refresh_token if provided
     const upsertData: any = {
       user_id: user.id,
       access_token: tokens.access_token,
       expires_at: expiresAt,
     };
-    
-    // Google only provides refresh_token on first authorization or when prompt=consent
     if (tokens.refresh_token) {
       upsertData.refresh_token = tokens.refresh_token;
     }
