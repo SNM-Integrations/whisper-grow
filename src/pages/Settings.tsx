@@ -192,9 +192,25 @@ const Settings = () => {
         setIsConnecting(true);
         toast.info('Connecting to Google Calendar...');
         
-        // Get the current origin
+        // Ensure auth session is available before calling backend
+        let tries = 0;
+        let session = null as any;
+        while (tries < 5) {
+          const { data: { session: s } } = await supabase.auth.getSession();
+          if (s) { session = s; break; }
+          await new Promise((r) => setTimeout(r, 250));
+          tries++;
+        }
+        if (!session) {
+          toast.error('Authentication not ready. Please refresh and try again.');
+          window.history.replaceState({}, '', '/settings');
+          setIsConnecting(false);
+          return;
+        }
+
+        // Build origin for redirect URI
         const origin = window.location.origin;
-        
+
         // Send the code to our backend to exchange for tokens
         const { data, error } = await supabase.functions.invoke('google-auth-callback', {
           body: { code, origin }
