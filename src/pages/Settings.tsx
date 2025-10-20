@@ -135,10 +135,13 @@ const Settings = () => {
   const checkGoogleConnection = async () => {
     setIsCheckingConnection(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setGoogleConnection({ connected: false, message: 'Sign in to check connection' });
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('check-google-connection');
-      
       if (error) throw error;
-      
       setGoogleConnection(data || { connected: false });
     } catch (error) {
       console.error('Error checking Google connection:', error);
@@ -779,8 +782,15 @@ const Settings = () => {
                         if (error) throw error;
                         if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
                         
-                        // Redirect to Google OAuth
-                        window.location.href = data.authUrl;
+                        // Open Google OAuth in a new tab to avoid iframe restrictions
+                        const authUrl = data.authUrl as string;
+                        const win = window.open(authUrl, '_blank', 'noopener,noreferrer');
+                        if (!win) {
+                          // Fallback to top-level navigation if popup blocked
+                          try { (window.top ?? window).location.href = authUrl; } catch {
+                            window.location.href = authUrl;
+                          }
+                        }
                       } catch (error) {
                         console.error('OAuth error:', error);
                         const errorMsg = error instanceof Error ? error.message : 'Failed to initiate Google connection';
