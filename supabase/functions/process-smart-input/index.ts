@@ -19,21 +19,30 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing');
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Extract the JWT token and create an RLS-aware client for DB access
+    const token = authHeader.replace('Bearer ', '');
+    const db = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) throw new Error('Not authenticated');
 
     console.log('Processing input:', text);
 
     // Get user's categories for context
-    const { data: categories } = await supabase
+    const { data: categories } = await db
       .from('categories')
-      .select('name')
+      .select('name, id')
       .eq('user_id', user.id);
 
     const categoryList = categories?.map(c => c.name).join(', ') || 'none';
@@ -110,7 +119,106 @@ Respond ONLY with valid JSON in this exact format:
     // Parse the JSON response
     const result = JSON.parse(aiContent);
 
-    return new Response(JSON.stringify(result), {
+    // Now actually create the record based on type
+    let createdItem = null;
+
+    if (result.type === 'EVENT' && result.data) {
+      const eventData = result.data;
+      const startDateTime = `${eventData.date}T${eventData.time}:00`;
+      const endDateTime = new Date(new Date(startDateTime).getTime() + (eventData.duration_minutes || 60) * 60000).toISOString();
+
+      const { data: event, error: eventError } = await db
+        .from('calendar_events')
+        .insert({
+          user_id: user.id,
+          title: eventData.title,
+          description: eventData.description || null,
+          start_time: startDateTime,
+          end_time: endDateTime,
+          location: eventData.location || null,
+          is_synced: false
+        })
+        .select()
+        .single();
+
+      if (eventError) throw eventError;
+      createdItem = { type: 'event', data: event };
+
+      // Try to sync to Google Calendar if connected
+      try {
+        const { data: syncResult, error: syncError } = await db.functions.invoke('sync-to-google-calendar', {
+          body: { eventId: event.id }
+        });
+        if (!syncError) {
+          console.log('Event synced to Google Calendar');
+        }
+      } catch (syncErr) {
+        console.log('Google Calendar sync skipped or failed:', syncErr);
+      }
+
+    } else if (result.type === 'TASK' && result.data) {
+      const taskData = result.data;
+
+      const { data: task, error: taskError } = await db
+        .from('tasks')
+        .insert({
+          user_id: user.id,
+          title: taskData.title,
+          description: taskData.description || null,
+          due_date: taskData.due_date || null,
+          priority: taskData.priority || 'medium',
+          completed: false
+        })
+        .select()
+        .single();
+
+      if (taskError) throw taskError;
+      createdItem = { type: 'task', data: task };
+
+    } else if (result.type === 'NOTE' && result.data) {
+      const noteData = result.data;
+
+      // Find or create category
+      let categoryId = null;
+      if (noteData.category) {
+        const existingCategory = categories?.find(c => c.name.toLowerCase() === noteData.category.toLowerCase());
+        if (existingCategory) {
+          categoryId = existingCategory.id;
+        } else {
+          const { data: newCategory, error: catError } = await db
+            .from('categories')
+            .insert({
+              user_id: user.id,
+              name: noteData.category
+            })
+            .select()
+            .single();
+          
+          if (!catError && newCategory) {
+            categoryId = newCategory.id;
+          }
+        }
+      }
+
+      const { data: note, error: noteError } = await db
+        .from('notes')
+        .insert({
+          user_id: user.id,
+          content: noteData.content,
+          category_id: categoryId,
+          note_type: 'original'
+        })
+        .select()
+        .single();
+
+      if (noteError) throw noteError;
+      createdItem = { type: 'note', data: note };
+    }
+
+    return new Response(JSON.stringify({ 
+      classification: result,
+      created: createdItem 
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
