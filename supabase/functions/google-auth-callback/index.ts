@@ -25,15 +25,17 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!; // Use anon key for Edge Functions
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    // Extract the JWT token from "Bearer <token>"
+    const token = authHeader.replace('Bearer ', '');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      console.error('Failed to get authenticated user');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Use the token directly with getUser to properly authenticate
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) {
+      console.error('Failed to get authenticated user:', userError);
       throw new Error('Not authenticated');
     }
 
