@@ -812,14 +812,19 @@ const Settings = () => {
                         if (error) throw error;
                         if (!data?.authUrl) throw new Error('Failed to get OAuth URL');
                         
-                        // Open Google OAuth in a new tab to avoid iframe restrictions
+                        // Navigate to OAuth in same tab when not inside iframe; open new tab if inside iframe or popup required
                         const authUrl = data.authUrl as string;
-                        const win = window.open(authUrl, '_blank', 'noopener,noreferrer');
-                        if (!win) {
-                          // Fallback to top-level navigation if popup blocked
-                          try { (window.top ?? window).location.href = authUrl; } catch {
-                            window.location.href = authUrl;
+                        const inIframe = window.self !== window.top;
+                        if (inIframe) {
+                          const win = window.open(authUrl, '_blank', 'noopener,noreferrer');
+                          if (!win) {
+                            // Fallback: try top-level redirect
+                            try { (window.top ?? window).location.href = authUrl; } catch {
+                              window.location.href = authUrl;
+                            }
                           }
+                        } else {
+                          window.location.href = authUrl;
                         }
                       } catch (error) {
                         console.error('OAuth error:', error);
