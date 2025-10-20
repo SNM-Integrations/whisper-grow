@@ -18,19 +18,28 @@ serve(async (req) => {
       throw new Error('No authorization header');
     }
 
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_PUBLISHABLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey, {
-      global: { headers: { Authorization: authHeader } }
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Supabase configuration missing');
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Extract the JWT token and create an RLS-aware client for DB access
+    const token = authHeader.replace('Bearer ', '');
+    const db = createClient(supabaseUrl, supabaseKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } }
     });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error('Not authenticated');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) throw new Error('Not authenticated');
 
     console.log('Syncing events from Google Calendar');
 
     // Get Google tokens
-    const { data: tokens, error: tokensError } = await supabase
+    const { data: tokens, error: tokensError } = await db
       .from('google_auth_tokens')
       .select('*')
       .eq('user_id', user.id)
@@ -62,7 +71,7 @@ serve(async (req) => {
       accessToken = newTokens.access_token;
 
       // Update stored tokens
-      await supabase
+      await db
         .from('google_auth_tokens')
         .update({
           access_token: newTokens.access_token,
@@ -101,7 +110,7 @@ serve(async (req) => {
       }
 
       // Check if event already exists
-      const { data: existing } = await supabase
+      const { data: existing } = await db
         .from('calendar_events')
         .select('id')
         .eq('google_event_id', googleEvent.id)
@@ -121,13 +130,13 @@ serve(async (req) => {
 
       if (existing) {
         // Update existing event
-        await supabase
+        await db
           .from('calendar_events')
           .update(eventData)
           .eq('id', existing.id);
       } else {
         // Create new event
-        await supabase
+        await db
           .from('calendar_events')
           .insert(eventData);
         syncedCount++;
