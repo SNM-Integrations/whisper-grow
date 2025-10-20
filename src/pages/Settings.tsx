@@ -128,7 +128,16 @@ const Settings = () => {
     fetchSettings();
     fetchCategories();
     fetchKnowledgeStats();
-    checkGoogleConnection();
+    
+    // Check if we're handling OAuth callback
+    const params = new URLSearchParams(window.location.search);
+    const isOAuthCallback = params.has('code') && params.has('scope');
+    
+    // Only check connection if not handling OAuth (callback will check after completion)
+    if (!isOAuthCallback) {
+      checkGoogleConnection();
+    }
+    
     handleOAuthCallback();
   }, []);
 
