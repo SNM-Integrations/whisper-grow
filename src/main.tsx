@@ -3,6 +3,11 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+if (import.meta.env.DEV) {
+  const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  console.log('[Diagnostics] React version:', React.version);
+  console.log('[Diagnostics] DevTools renderers count:', hook?.renderers ? (hook.renderers.size ?? (hook.renderers as any).length ?? 0) : 'n/a');
+}
 // Enable dark mode by default
 document.documentElement.classList.add('dark');
 
