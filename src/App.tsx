@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
 import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
+import SafeSplash from "./pages/SafeSplash";
 
 const ClientToasters = () => {
   const [mounted, setMounted] = useState(false);
@@ -31,7 +32,7 @@ const App = () => {
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
           <ClientToasters />
           <Routes>
-            <Route path="/" element={<Index />} />
+            <Route path="/" element={import.meta.env.DEV ? <SafeSplash /> : <Index />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/settings" element={<Settings />} />

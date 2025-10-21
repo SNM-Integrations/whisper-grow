@@ -6,7 +6,11 @@ import "./index.css";
 if (import.meta.env.DEV) {
   const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
   console.log('[Diagnostics] React version:', React.version);
-  console.log('[Diagnostics] DevTools renderers count:', hook?.renderers ? (hook.renderers.size ?? (hook.renderers as any).length ?? 0) : 'n/a');
+  const renderersCount = hook?.renderers ? (hook.renderers.size ?? (hook.renderers as any).length ?? 0) : 'n/a';
+  console.log('[Diagnostics] DevTools renderers count:', renderersCount);
+  if (typeof renderersCount === 'number' && renderersCount > 1) {
+    console.warn('[Diagnostics] Multiple React renderers detected. This can cause invalid hook calls.');
+  }
 }
 // Enable dark mode by default
 document.documentElement.classList.add('dark');
