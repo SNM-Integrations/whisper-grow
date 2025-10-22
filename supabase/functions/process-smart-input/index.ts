@@ -64,17 +64,31 @@ serve(async (req) => {
             role: 'system',
             content: `You are a smart assistant that categorizes user input into three types: EVENT, TASK, or NOTE.
 
-Rules:
-- EVENT: Contains date/time references, meeting mentions, appointments, schedules
-- TASK: Contains action items, to-do items, deadlines, things to complete
-- NOTE: General information, thoughts, ideas, learnings
+CRITICAL Rules for classification:
+- EVENT: ALWAYS classify as EVENT if the input mentions:
+  * "add to calendar", "calendar", "schedule", "appointment", "meeting"
+  * Specific dates (e.g., "27th of October", "next Monday", "tomorrow at 3pm")
+  * Time-based commitments or deadlines with specific dates
+  * Examples: "Add to my calendar X on Y date", "Schedule meeting for...", "Appointment on..."
+  
+- TASK: Only classify as TASK if:
+  * Contains action verbs like "need to", "must", "should" WITHOUT calendar-related words
+  * Has a deadline but user does NOT mention calendar/schedule
+  * To-do items, action items
+  
+- NOTE: Only classify as NOTE if:
+  * General information, thoughts, ideas, learnings
+  * No specific dates or calendar mentions
+  * Observations, reflections, or knowledge capture
 
 Extract relevant information:
-For EVENT: title, date, time, duration, location (if mentioned)
+For EVENT: title, date, time (default to 09:00 if not specified), duration_minutes (default to 60), location
 For TASK: title, description, due_date, priority (high/medium/low)
 For NOTE: content, suggested category
 
 User's existing categories: ${categoryList}
+
+IMPORTANT: When user says "add to my calendar" or mentions "calendar", ALWAYS classify as EVENT, even if phrased informally.
 
 Respond ONLY with valid JSON in this exact format:
 {
@@ -86,6 +100,7 @@ Respond ONLY with valid JSON in this exact format:
     "time": "HH:MM",
     "duration_minutes": number,
     "location": "string or null",
+    "description": "string or null",
     // for TASK
     "title": "string",
     "description": "string",
