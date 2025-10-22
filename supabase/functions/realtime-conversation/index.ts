@@ -384,6 +384,30 @@ async function handleToolCall(toolName: string, args: any, supabaseClient: any, 
       });
       
       if (error) throw error;
+      
+      // If it's a calendar event, sync it to Google Calendar
+      if (data?.classification === 'EVENT' && data?.item?.id) {
+        console.log('Syncing calendar event to Google Calendar:', data.item.id);
+        const { error: syncError } = await supabaseClient.functions.invoke('sync-to-google-calendar', {
+          body: { eventId: data.item.id }
+        });
+        
+        if (syncError) {
+          console.error('Failed to sync to Google Calendar:', syncError);
+          return {
+            success: true,
+            result: data,
+            warning: 'Event saved locally but failed to sync to Google Calendar'
+          };
+        }
+        
+        return {
+          success: true,
+          result: data,
+          synced_to_google: true
+        };
+      }
+      
       return { success: true, result: data };
     }
 
