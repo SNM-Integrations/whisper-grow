@@ -180,6 +180,7 @@ Deno.serve(async (req) => {
   let openAIWs: WebSocket | null = null;
   let supabaseClient: any = null;
   let userId: string | null = null;
+  let authToken: string | null = null;
 
   socket.onopen = async () => {
     console.log("Client WebSocket connected");
@@ -187,6 +188,7 @@ Deno.serve(async (req) => {
     // Get auth token from query params
     const url = new URL(req.url);
     const token = url.searchParams.get('token');
+    authToken = token;
     
     if (!token) {
       console.error("No token provided");
@@ -305,7 +307,7 @@ Deno.serve(async (req) => {
           let result;
           try {
             const parsedArgs = JSON.parse(args);
-            result = await handleToolCall(name, parsedArgs, supabaseClient, userId!);
+            result = await handleToolCall(name, parsedArgs, supabaseClient, userId!, authToken!);
           } catch (error) {
             console.error(`Error executing ${name}:`, error);
             result = { error: (error as Error).message };
@@ -373,27 +375,46 @@ Deno.serve(async (req) => {
 });
 
 // Tool execution handler
-async function handleToolCall(toolName: string, args: any, supabaseClient: any, userId: string) {
+async function handleToolCall(toolName: string, args: any, supabaseClient: any, userId: string, authToken: string) {
   console.log(`Executing tool: ${toolName}`, args);
 
   switch (toolName) {
     case 'save_thought': {
       // Use existing process-smart-input edge function
-      const { data, error } = await supabaseClient.functions.invoke('process-smart-input', {
-        body: { text: args.text }
+      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+      
+      const processResponse = await fetch(`${supabaseUrl}/functions/v1/process-smart-input`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: args.text })
       });
       
-      if (error) throw error;
+      if (!processResponse.ok) {
+        const errorText = await processResponse.text();
+        console.error('process-smart-input error:', processResponse.status, errorText);
+        throw new Error(`Failed to save: ${errorText}`);
+      }
+      
+      const data = await processResponse.json();
       
       // If it's a calendar event, sync it to Google Calendar
       if (data?.classification === 'EVENT' && data?.item?.id) {
         console.log('Syncing calendar event to Google Calendar:', data.item.id);
-        const { error: syncError } = await supabaseClient.functions.invoke('sync-to-google-calendar', {
-          body: { eventId: data.item.id }
+        
+        const syncResponse = await fetch(`${supabaseUrl}/functions/v1/sync-to-google-calendar`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ eventId: data.item.id })
         });
         
-        if (syncError) {
-          console.error('Failed to sync to Google Calendar:', syncError);
+        if (!syncResponse.ok) {
+          console.error('Failed to sync to Google Calendar');
           return {
             success: true,
             result: data,
@@ -423,16 +444,32 @@ async function handleToolCall(toolName: string, args: any, supabaseClient: any, 
     }
 
     case 'query_knowledge': {
-      // Generate embedding and search notes
-      const { data: embeddingData, error: embError } = await supabaseClient.functions.invoke('generate-embeddings', {
-        body: { content: args.query, noteId: null }
+      // Generate embedding using OpenAI directly
+      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      if (!OPENAI_API_KEY) throw new Error('OpenAI API key not configured');
+      
+      const embeddingResponse = await fetch('https://api.openai.com/v1/embeddings', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          input: args.query,
+          model: 'text-embedding-3-small',
+        }),
       });
 
-      if (embError) throw embError;
+      if (!embeddingResponse.ok) {
+        throw new Error('Failed to generate query embedding');
+      }
+
+      const embeddingData = await embeddingResponse.json();
+      const embedding = embeddingData.data[0].embedding;
 
       const { data: notes, error: notesError } = await supabaseClient
         .rpc('match_notes', {
-          query_embedding: embeddingData.embedding,
+          query_embedding: embedding,
           match_threshold: 0.7,
           match_count: args.limit || 5,
           user_id_param: userId
