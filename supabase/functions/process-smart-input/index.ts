@@ -230,9 +230,13 @@ Respond ONLY with valid JSON in this exact format:
       createdItem = { type: 'note', data: note };
     }
 
-    return new Response(JSON.stringify({ 
-      classification: result,
-      created: createdItem 
+    return new Response(JSON.stringify({
+      // Backward-compatible fields for clients
+      type: result?.type,
+      data: result?.data,
+      classification: result?.type, // simple string for quick checks
+      item: createdItem ? createdItem.data : null, // created DB record, if any
+      item_type: createdItem ? createdItem.type : null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

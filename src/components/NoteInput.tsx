@@ -43,13 +43,27 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
 
       console.log('AI classified input as:', smartData.type, smartData.data);
 
-      // Route based on AI classification
-      if (smartData.type === 'EVENT') {
-        await createCalendarEvent(smartData.data);
-      } else if (smartData.type === 'TASK') {
-        await createTask(smartData.data);
+      // Prefer server-created item if provided to avoid duplicates
+      if (smartData?.item && smartData?.classification) {
+        const cls = smartData.classification;
+        if (cls === 'EVENT') {
+          toast.success(`Calendar event "${smartData.item.title}" created`);
+        } else if (cls === 'TASK') {
+          toast.success(`Task "${smartData.item.title}" created`);
+        } else if (cls === 'NOTE') {
+          toast.success(`Note added`);
+        }
+        setNoteText("");
+        onNoteCreated();
       } else {
-        await createNote(smartData.data.content, smartData.data.category);
+        // Fallback: create on client based on classification
+        if (smartData.type === 'EVENT') {
+          await createCalendarEvent(smartData.data);
+        } else if (smartData.type === 'TASK') {
+          await createTask(smartData.data);
+        } else {
+          await createNote(smartData.data.content, smartData.data.category);
+        }
       }
     } catch (error) {
       console.error("Error processing input:", error);
