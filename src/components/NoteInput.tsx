@@ -47,7 +47,12 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
       if (smartData?.item && smartData?.classification) {
         const cls = smartData.classification;
         if (cls === 'EVENT') {
-          toast.success(`Calendar event "${smartData.item.title}" created`);
+          const event = smartData.item;
+          const startDate = new Date(event.start_time);
+          const dateStr = startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+          const timeStr = startDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+          
+          toast.success(`Calendar event "${event.title}" created for ${dateStr} at ${timeStr}`);
         } else if (cls === 'TASK') {
           toast.success(`Task "${smartData.item.title}" created`);
         } else if (cls === 'NOTE') {

@@ -15,6 +15,8 @@ interface CalendarEvent {
   end_time: string;
   location?: string;
   user_id: string;
+  is_synced?: boolean;
+  google_event_id?: string;
 }
 
 interface CalendarViewProps {
@@ -32,21 +34,49 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
     fetchEvents();
   }, [selectedDate, refreshTrigger]);
 
+  // Realtime subscription for calendar events
+  useEffect(() => {
+    const channel = supabase
+      .channel('calendar-events-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'calendar_events'
+        },
+        (payload) => {
+          console.log('Calendar event changed:', payload);
+          fetchEvents();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [selectedDate]);
+
   const fetchEvents = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const startOfDay = new Date(selectedDate);
-    startOfDay.setHours(0, 0, 0, 0);
-    const endOfDay = new Date(selectedDate);
-    endOfDay.setHours(23, 59, 59, 999);
+    // Compute UTC boundaries for the selected date
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const day = selectedDate.getDate();
+    
+    const startOfDayUtc = new Date(Date.UTC(year, month, day, 0, 0, 0, 0)).toISOString();
+    const endOfDayUtc = new Date(Date.UTC(year, month, day, 23, 59, 59, 999)).toISOString();
+
+    console.log('Fetching events for UTC range:', { startOfDayUtc, endOfDayUtc });
 
     const { data, error } = await supabase
       .from("calendar_events")
       .select("*")
       .eq("user_id", user.id)
-      .gte("start_time", startOfDay.toISOString())
-      .lte("start_time", endOfDay.toISOString())
+      .gte("start_time", startOfDayUtc)
+      .lte("start_time", endOfDayUtc)
       .order("start_time");
 
     if (error) {
@@ -58,6 +88,7 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
       return;
     }
 
+    console.log('Fetched events:', data);
     setEvents(data || []);
   };
 
@@ -80,10 +111,12 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Calendar</h2>
-        <Button onClick={handleNewEvent} className="gap-2">
-          <Plus className="h-4 w-4" />
-          New Event
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={handleNewEvent} className="gap-2">
+            <Plus className="h-4 w-4" />
+            New Event
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -119,8 +152,15 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
                   onClick={() => handleEventClick(event)}
                 >
                   <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-semibold">{event.title}</h4>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold">{event.title}</h4>
+                        {event.is_synced && (
+                          <span className="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                            Google
+                          </span>
+                        )}
+                      </div>
                       {event.description && (
                         <p className="text-sm text-muted-foreground mt-1">
                           {event.description}

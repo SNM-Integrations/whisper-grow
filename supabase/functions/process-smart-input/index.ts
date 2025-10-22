@@ -135,12 +135,18 @@ Respond ONLY with valid JSON in this exact format:
     const result = JSON.parse(aiContent);
 
     // Now actually create the record based on type
-    let createdItem = null;
+    let createdItem: any = null;
 
     if (result.type === 'EVENT' && result.data) {
       const eventData = result.data;
-      const startDateTime = `${eventData.date}T${eventData.time}:00`;
-      const endDateTime = new Date(new Date(startDateTime).getTime() + (eventData.duration_minutes || 60) * 60000).toISOString();
+      // Parse date and time, create proper UTC ISO strings
+      const dateTimeStr = `${eventData.date}T${eventData.time}:00`;
+      const startMs = Date.parse(dateTimeStr);
+      const durationMs = (eventData.duration_minutes || 60) * 60000;
+      const startDateTime = new Date(startMs).toISOString();
+      const endDateTime = new Date(startMs + durationMs).toISOString();
+
+      console.log('Creating event with UTC times:', { startDateTime, endDateTime });
 
       const { data: event, error: eventError } = await db
         .from('calendar_events')
@@ -160,16 +166,25 @@ Respond ONLY with valid JSON in this exact format:
       createdItem = { type: 'event', data: event };
 
       // Try to sync to Google Calendar if connected
+      let syncStatus = 'not_attempted';
       try {
         const { data: syncResult, error: syncError } = await db.functions.invoke('sync-to-google-calendar', {
           body: { eventId: event.id }
         });
-        if (!syncError) {
-          console.log('Event synced to Google Calendar');
+        if (syncError) {
+          console.log('Google Calendar sync failed:', syncError);
+          syncStatus = 'failed';
+        } else {
+          console.log('Event synced to Google Calendar:', syncResult);
+          syncStatus = 'success';
         }
       } catch (syncErr) {
         console.log('Google Calendar sync skipped or failed:', syncErr);
+        syncStatus = 'skipped';
       }
+      
+      // Add sync status to response
+      createdItem.sync_status = syncStatus;
 
     } else if (result.type === 'TASK' && result.data) {
       const taskData = result.data;
