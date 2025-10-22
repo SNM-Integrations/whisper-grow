@@ -29,6 +29,8 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     fetchEvents();
@@ -56,6 +58,23 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
       supabase.removeChannel(channel);
     };
   }, [selectedDate]);
+
+  // Check Google Calendar connection
+  useEffect(() => {
+    let mounted = true;
+    supabase.functions.invoke('check-google-connection')
+      .then(({ data, error }) => {
+        if (!mounted) return;
+        if (error) {
+          console.log('Google connection check failed:', error);
+          setGoogleConnected(false);
+        } else {
+          setGoogleConnected(!!data?.connected);
+        }
+      })
+      .catch(() => setGoogleConnected(false));
+    return () => { mounted = false; };
+  }, []);
 
   const fetchEvents = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -107,6 +126,64 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
     setIsDialogOpen(false);
   };
 
+  const handleConnectGoogle = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-google-oauth-url');
+      if (error) throw error;
+      if (data?.url) {
+        window.location.href = data.url;
+      } else {
+        toast({
+          title: 'Connection failed',
+          description: 'Could not get Google OAuth URL',
+          variant: 'destructive',
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: 'Connection failed',
+        description: e.message || 'Error connecting to Google',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handlePullFromGoogle = async () => {
+    setIsSyncing(true);
+    try {
+      const { error } = await supabase.functions.invoke('sync-from-google-calendar', { body: {} as any });
+      if (error) throw error;
+      toast({ title: 'Synced from Google', description: 'Your events have been imported.' });
+      fetchEvents();
+    } catch (e: any) {
+      toast({ title: 'Sync failed', description: e.message || 'Could not sync from Google', variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const handlePushUnsynced = async () => {
+    setIsSyncing(true);
+    try {
+      const unsynced = events.filter(e => !e.is_synced);
+      let ok = 0, fail = 0;
+      for (const ev of unsynced) {
+        const { error } = await supabase.functions.invoke('sync-to-google-calendar', { body: { eventId: ev.id } });
+        if (error) fail++; else ok++;
+      }
+      toast({
+        title: 'Push complete',
+        description: `${ok} synced, ${fail} failed.`,
+        variant: fail ? 'destructive' : undefined,
+      });
+      fetchEvents();
+    } catch (e: any) {
+      toast({ title: 'Push failed', description: e.message || 'Could not sync to Google', variant: 'destructive' });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -116,6 +193,25 @@ const CalendarView = ({ refreshTrigger }: CalendarViewProps) => {
             <Plus className="h-4 w-4" />
             New Event
           </Button>
+          {googleConnected === false && (
+            <Button variant="outline" onClick={handleConnectGoogle}>
+              Connect Google Calendar
+            </Button>
+          )}
+          {googleConnected && (
+            <>
+              <Button variant="outline" onClick={handlePullFromGoogle} disabled={isSyncing}>
+                {isSyncing ? 'Syncing…' : 'Pull from Google'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handlePushUnsynced}
+                disabled={isSyncing || events.every(e => e.is_synced)}
+              >
+                Push unsynced
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

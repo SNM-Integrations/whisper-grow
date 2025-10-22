@@ -128,11 +128,25 @@ Respond ONLY with valid JSON in this exact format:
     }
 
     const aiData = await aiResponse.json();
-    const aiContent = aiData.choices[0].message.content;
-    console.log('AI response:', aiContent);
+    let aiContent = aiData.choices?.[0]?.message?.content ?? '';
+    console.log('AI raw response:', aiContent);
 
-    // Parse the JSON response
-    const result = JSON.parse(aiContent);
+    // Parse the JSON response robustly
+    const stripCodeFences = (s: string) => s.replace(/```(?:json)?/g, '').trim();
+    const extractJson = (s: string) => {
+      const start = s.indexOf('{');
+      const end = s.lastIndexOf('}');
+      if (start !== -1 && end !== -1 && end > start) return s.slice(start, end + 1);
+      return s;
+    };
+
+    let result: any;
+    try {
+      result = JSON.parse(extractJson(stripCodeFences(aiContent)));
+    } catch (e) {
+      console.error('Failed to parse AI JSON. Content was:', aiContent);
+      throw new Error('Invalid AI JSON response');
+    }
 
     // Now actually create the record based on type
     let createdItem: any = null;
