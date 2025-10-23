@@ -58,23 +58,92 @@ serve(async (req) => {
     const now = new Date();
     const isExpired = expiresAt <= now;
 
-    // Get user info from Google
-    let userEmail = null;
-    if (!isExpired) {
+    let accessToken = tokens.access_token;
+    let refreshed = false;
+    let reconsentRequired = false;
+
+    // If token is expired, try to refresh it
+    if (isExpired) {
+      console.log('Access token expired, attempting refresh...');
       try {
-        const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-          headers: {
-            'Authorization': `Bearer ${tokens.access_token}`
-          }
+        const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+        
+        if (!clientId || !clientSecret) {
+          throw new Error('Google OAuth credentials not configured');
+        }
+
+        const refreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            grant_type: 'refresh_token',
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: tokens.refresh_token,
+          }),
         });
 
-        if (userInfoResponse.ok) {
-          const userInfo = await userInfoResponse.json();
-          userEmail = userInfo.email;
+        if (!refreshResponse.ok) {
+          const errorData = await refreshResponse.json();
+          console.error('Token refresh failed:', errorData);
+          
+          if (errorData.error === 'invalid_grant') {
+            reconsentRequired = true;
+            return new Response(JSON.stringify({ 
+              connected: false,
+              reconsentRequired: true,
+              message: 'Refresh token invalid or revoked. Please reconnect your Google Calendar.'
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          throw new Error(`Token refresh failed: ${errorData.error || 'Unknown error'}`);
         }
+
+        const refreshData = await refreshResponse.json();
+        accessToken = refreshData.access_token;
+        const newExpiresAt = new Date(now.getTime() + (refreshData.expires_in * 1000));
+
+        // Update tokens in database
+        const { error: updateError } = await db
+          .from('google_auth_tokens')
+          .update({
+            access_token: accessToken,
+            expires_at: newExpiresAt.toISOString(),
+            updated_at: now.toISOString(),
+          })
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          console.error('Failed to update tokens:', updateError);
+          throw updateError;
+        }
+
+        refreshed = true;
+        console.log('Access token refreshed successfully');
       } catch (error) {
-        console.error('Failed to fetch Google user info:', error);
+        console.error('Failed to refresh token:', error);
+        // If refresh fails for reasons other than invalid_grant, continue with expired token
+        // The sync functions will handle the refresh themselves
       }
+    }
+
+    // Get user info from Google
+    let userEmail = null;
+    try {
+      const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (userInfoResponse.ok) {
+        const userInfo = await userInfoResponse.json();
+        userEmail = userInfo.email;
+      }
+    } catch (error) {
+      console.error('Failed to fetch Google user info:', error);
     }
 
     return new Response(JSON.stringify({ 
@@ -83,8 +152,10 @@ serve(async (req) => {
       expiresAt: tokens.expires_at,
       createdAt: tokens.created_at,
       updatedAt: tokens.updated_at,
-      isExpired,
-      needsRefresh: isExpired || (expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000 // Less than 5 minutes
+      isExpired: !refreshed && isExpired,
+      needsRefresh: !refreshed && (expiresAt.getTime() - now.getTime()) < 5 * 60 * 1000,
+      refreshed,
+      reconsentRequired
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

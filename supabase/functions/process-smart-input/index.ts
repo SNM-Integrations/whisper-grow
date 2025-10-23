@@ -148,10 +148,29 @@ Respond ONLY with valid JSON in this exact format:
       throw new Error('Invalid AI JSON response');
     }
 
+    // Normalize and validate classification type
+    let classification = result.type?.toUpperCase();
+    
+    // Guard against invalid classification or missing calendar cues
+    if (!['EVENT', 'TASK', 'NOTE'].includes(classification)) {
+      console.log('Unknown classification:', result.type, 'checking for calendar cues...');
+      // Fallback: if text contains calendar cues, treat as event
+      const calendarCues = /\b(calendar|schedule|meeting|appointment|at \d|on (jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d))\b/i;
+      if (calendarCues.test(text)) {
+        console.log('Detected calendar cues, treating as EVENT');
+        classification = 'EVENT';
+      } else {
+        console.log('No calendar cues, defaulting to NOTE');
+        classification = 'NOTE';
+      }
+    }
+
+    console.log('Final classification:', classification);
+
     // Now actually create the record based on type
     let createdItem: any = null;
 
-    if (result.type === 'EVENT' && result.data) {
+    if (classification === 'EVENT' && result.data) {
       const eventData = result.data;
       // Parse date and time, create proper UTC ISO strings
       const dateTimeStr = `${eventData.date}T${eventData.time}:00`;
@@ -200,7 +219,7 @@ Respond ONLY with valid JSON in this exact format:
       // Add sync status to response
       createdItem.sync_status = syncStatus;
 
-    } else if (result.type === 'TASK' && result.data) {
+    } else if (classification === 'TASK' && result.data) {
       const taskData = result.data;
 
       const { data: task, error: taskError } = await db
@@ -219,7 +238,7 @@ Respond ONLY with valid JSON in this exact format:
       if (taskError) throw taskError;
       createdItem = { type: 'task', data: task };
 
-    } else if (result.type === 'NOTE' && result.data) {
+    } else if (classification === 'NOTE' && result.data) {
       const noteData = result.data;
 
       // Find or create category
@@ -261,11 +280,12 @@ Respond ONLY with valid JSON in this exact format:
 
     return new Response(JSON.stringify({
       // Backward-compatible fields for clients
-      type: result?.type,
+      type: classification,
       data: result?.data,
-      classification: result?.type, // simple string for quick checks
+      classification: classification, // simple string for quick checks
       item: createdItem ? createdItem.data : null, // created DB record, if any
-      item_type: createdItem ? createdItem.type : null
+      item_type: createdItem ? createdItem.type : null,
+      sync_status: createdItem?.sync_status || null
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

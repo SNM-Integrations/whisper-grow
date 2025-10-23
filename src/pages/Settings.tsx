@@ -38,6 +38,8 @@ interface GoogleConnectionStatus {
   updatedAt?: string;
   isExpired?: boolean;
   needsRefresh?: boolean;
+  refreshed?: boolean;
+  reconsentRequired?: boolean;
   message?: string;
 }
 
@@ -750,14 +752,19 @@ const Settings = () => {
                           Connected: {new Date(googleConnection.createdAt).toLocaleDateString()}
                         </p>
                       )}
-                      {googleConnection.isExpired && (
-                        <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
-                          ⚠️ Token expired - please reconnect
+                      {googleConnection.refreshed && (
+                        <p className="text-sm text-green-600 dark:text-green-400 mt-2">
+                          ✓ Access token refreshed automatically
                         </p>
                       )}
-                      {googleConnection.needsRefresh && !googleConnection.isExpired && (
+                      {googleConnection.needsRefresh && !googleConnection.refreshed && (
                         <p className="text-sm text-muted-foreground mt-2">
-                          Token will be refreshed on next sync
+                          Will refresh automatically on next sync
+                        </p>
+                      )}
+                      {googleConnection.reconsentRequired && (
+                        <p className="text-sm text-amber-600 dark:text-amber-400 mt-2">
+                          ⚠️ Re-consent required - refresh token expired
                         </p>
                       )}
                     </div>
@@ -845,6 +852,14 @@ const Settings = () => {
                   Manually sync your events with Google Calendar:
                 </p>
                 <div className="flex gap-2">
+                  <Button
+                    onClick={checkGoogleConnection}
+                    variant="outline"
+                    disabled={isCheckingConnection}
+                  >
+                    <RefreshCw className={`h-4 w-4 mr-2 ${isCheckingConnection ? 'animate-spin' : ''}`} />
+                    {isCheckingConnection ? 'Refreshing...' : 'Refresh Token Now'}
+                  </Button>
                   <Button
                     onClick={async () => {
                       try {
