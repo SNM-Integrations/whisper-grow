@@ -311,6 +311,20 @@ export class RealtimeChat {
     if (!user) throw new Error('Not authenticated');
 
     switch (toolName) {
+      case 'set_listening_mode': {
+        // Handle mode switching
+        const mode = args.mode as 'active' | 'passive';
+        console.log(`[RealtimeChat] Switching to ${mode} mode`);
+        
+        // Emit mode change event back to UI
+        this.onMessage({
+          type: 'mode_change',
+          mode: mode
+        });
+        
+        return { success: true, mode: mode };
+      }
+
       case 'save_action_item': {
         const { title, description, priority, owner } = args;
         const taskDescription = [
