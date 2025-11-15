@@ -21,26 +21,34 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
   const handleMessage = (event: any) => {
     console.log('[VoiceInterface] Received message:', event.type);
     
-    if (event.type === 'response.audio.delta') {
+    if (event.type === 'mode_change') {
+      // Handle explicit mode changes from AI tool calls
+      const newMode = event.mode === 'passive' ? 'passive' : 'active';
+      console.log('[VoiceInterface] AI switched to mode:', newMode);
+      setAiMode(newMode);
+      if (newMode === 'passive') {
+        setIsSpeaking(false);
+        onSpeakingChange(false);
+      }
+    } else if (event.type === 'response.audio.delta') {
       setIsSpeaking(true);
       setAiMode('speaking');
       onSpeakingChange(true);
     } else if (event.type === 'response.audio.done') {
       setIsSpeaking(false);
-      setAiMode('active');
+      // Only return to active if not in passive mode
+      if (aiMode !== 'passive') {
+        setAiMode('active');
+      }
       onSpeakingChange(false);
     } else if (event.type === 'input_audio_buffer.speech_started') {
       console.log('[VoiceInterface] User started speaking');
     } else if (event.type === 'input_audio_buffer.speech_stopped') {
       console.log('[VoiceInterface] User stopped speaking');
-    } else if (event.type === 'response.audio_transcript.delta') {
-      // Detect mode from AI transcript
-      const transcript = event.delta?.toLowerCase() || '';
-      if (transcript.includes("i'm listening") || transcript.includes("go ahead") || transcript.includes("listening")) {
-        setAiMode('passive');
-      }
     } else if (event.type === 'response.created') {
-      setAiMode('thinking');
+      if (aiMode !== 'passive') {
+        setAiMode('thinking');
+      }
     }
   };
 
@@ -123,30 +131,34 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
   }, []);
 
   const getModeDisplay = () => {
-    switch (aiMode) {
+    switch(aiMode) {
       case 'passive':
         return {
-          icon: <Ear className="h-5 w-5 text-muted-foreground" />,
-          text: "Recording your thoughts...",
-          color: "text-muted-foreground"
+          icon: <Ear className="h-6 w-6" />,
+          text: 'Recording...',
+          color: 'text-orange-400',
+          bgColor: 'bg-orange-500/10'
         };
       case 'thinking':
         return {
-          icon: <Loader2 className="h-5 w-5 text-primary animate-spin" />,
-          text: "Analyzing context...",
-          color: "text-primary"
+          icon: <Loader2 className="h-6 w-6 animate-spin" />,
+          text: 'Processing...',
+          color: 'text-blue-400',
+          bgColor: 'bg-blue-500/10'
         };
       case 'speaking':
         return {
-          icon: <Volume2 className="h-5 w-5 text-primary animate-pulse" />,
-          text: "AI is speaking...",
-          color: "text-primary"
+          icon: <Volume2 className="h-6 w-6 animate-pulse" />,
+          text: 'JARVIS Speaking',
+          color: 'text-primary',
+          bgColor: 'bg-primary/10'
         };
-      default: // active
+      default:
         return {
-          icon: <div className="h-3 w-3 bg-green-500 rounded-full animate-pulse" />,
-          text: "AI Assistant Active",
-          color: "text-foreground"
+          icon: <Mic className="h-6 w-6 animate-pulse" />,
+          text: 'JARVIS Active',
+          color: 'text-green-400',
+          bgColor: 'bg-green-500/10'
         };
     }
   };
@@ -154,37 +166,33 @@ const VoiceInterface: React.FC<VoiceInterfaceProps> = ({ onSpeakingChange }) => 
   const modeDisplay = getModeDisplay();
 
   return (
-    <div className="fixed bottom-8 right-8 flex flex-col items-center gap-4 z-50">
+    <div className="fixed bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-4 z-50">
       {!isConnected ? (
         <Button 
           onClick={startConversation}
           disabled={isLoading}
-          size="lg"
-          className="rounded-full h-16 w-16 shadow-lg"
+          className="rounded-full w-20 h-20 bg-primary hover:bg-primary/90 text-white shadow-lg hover:shadow-xl transition-all"
         >
           {isLoading ? (
-            <Loader2 className="h-6 w-6 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin" />
           ) : (
-            <Mic className="h-6 w-6" />
+            <Mic className="h-8 w-8" />
           )}
         </Button>
       ) : (
-        <div className="flex flex-col items-center gap-2">
-          <div className="flex items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-full px-4 py-2 shadow-lg">
-            {modeDisplay.icon}
-            <span className={`text-sm font-medium ${modeDisplay.color}`}>
-              {modeDisplay.text}
-            </span>
+        <>
+          <div className={`flex items-center gap-4 px-8 py-4 rounded-full backdrop-blur-sm border-2 shadow-xl transition-all ${getModeDisplay().bgColor} ${getModeDisplay().color} border-current/20`}>
+            {getModeDisplay().icon}
+            <span className="font-semibold text-base">{getModeDisplay().text}</span>
           </div>
           <Button 
             onClick={endConversation}
-            variant="destructive"
-            size="lg"
-            className="rounded-full h-16 w-16 shadow-lg"
+            variant="secondary"
+            className="rounded-full w-14 h-14 shadow-lg hover:shadow-xl transition-all"
           >
             <MicOff className="h-6 w-6" />
           </Button>
-        </div>
+        </>
       )}
     </div>
   );
