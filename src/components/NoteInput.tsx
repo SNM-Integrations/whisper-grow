@@ -116,7 +116,7 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
               "Content-Type": "application/json",
               "Authorization": `Bearer ${session?.access_token}`,
             },
-            body: JSON.stringify({ noteId: newNote.id }),
+            body: JSON.stringify({ noteId: newNote.id, content: content }),
           }
         );
 
@@ -256,7 +256,7 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session?.access_token}`,
           },
-          body: JSON.stringify({ noteId: originalNote.id }),
+          body: JSON.stringify({ noteId: originalNote.id, content: formattedText }),
         }
       ).catch(err => console.error('Embedding failed:', err));
 
@@ -292,7 +292,7 @@ const NoteInput = ({ onNoteCreated }: NoteInputProps) => {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session?.access_token}`,
                   },
-                  body: JSON.stringify({ noteId: topicNote.id }),
+                  body: JSON.stringify({ noteId: topicNote.id, content: topic.excerpt }),
                 }
               ).catch(err => console.error('Embedding failed:', err));
             }

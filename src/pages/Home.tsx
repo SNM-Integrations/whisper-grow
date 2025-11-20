@@ -67,7 +67,7 @@ const Home = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session?.access_token}`,
           },
-          body: JSON.stringify({ noteId: note.id }),
+          body: JSON.stringify({ noteId: note.id, content: noteText }),
         }
       );
 
@@ -154,7 +154,7 @@ const Home = () => {
             "Content-Type": "application/json",
             "Authorization": `Bearer ${session?.access_token}`,
           },
-          body: JSON.stringify({ noteId: note.id }),
+          body: JSON.stringify({ noteId: note.id, content: transcript }),
         }
       );
 
