@@ -7,11 +7,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Brain, Mic, Type } from "lucide-react";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import VoiceInterface from "@/components/VoiceInterface";
 
 const Home = () => {
   const [inputMode, setInputMode] = useState<"text" | "voice">("text");
   const [noteText, setNoteText] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const navigate = useNavigate();
 
   const handleSubmit = async () => {
@@ -247,6 +249,8 @@ const Home = () => {
           </Button>
         </Card>
       </div>
+
+      <VoiceInterface onSpeakingChange={setIsSpeaking} />
     </div>
   );
 };
