@@ -242,7 +242,7 @@ Deno.serve(async (req) => {
       try {
         socket.send(JSON.stringify({ type: 'status', message: 'Connecting to OpenAI…' }));
         openAIWs = new WebSocket(
-          'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17',
+          'wss://api.openai.com/v1/realtime?model=gpt-realtime',
           [
             'realtime',
             `openai-insecure-api-key.${OPENAI_API_KEY}`,
