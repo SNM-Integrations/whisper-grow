@@ -272,7 +272,7 @@ export class RealtimeChat {
       // Connect to OpenAI's Realtime API
       console.log('[RealtimeChat] Connecting to OpenAI Realtime API...');
       const baseUrl = "https://api.openai.com/v1/realtime";
-      const model = "gpt-4o-realtime-preview-2024-12-17";
+      const model = "gpt-realtime";
       const sdpResponse = await fetch(`${baseUrl}?model=${model}`, {
         method: "POST",
         body: offer.sdp,

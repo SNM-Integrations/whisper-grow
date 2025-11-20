@@ -253,7 +253,7 @@ Be JARVIS. Be efficient. Be silent when told. Be ready when called.`;
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
+        model: "gpt-realtime",
         voice: "alloy",
         instructions,
         tools,
