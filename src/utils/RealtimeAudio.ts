@@ -129,6 +129,7 @@ export class RealtimeChat {
   ) {
     this.audioEl = document.createElement("audio");
     this.audioEl.autoplay = true;
+    this.audioEl.volume = 0.6; // Lower volume to prevent feedback
     this.agentType = agentType;
     this.meetingId = meetingId;
     this.audioBuffer = new CircularAudioBuffer();
@@ -185,6 +186,19 @@ export class RealtimeChat {
           document.addEventListener('click', retryPlay, { once: true });
           document.addEventListener('touchstart', retryPlay, { once: true });
         }
+      };
+
+      // Monitor connection state
+      this.pc.onconnectionstatechange = () => {
+        console.log('[RealtimeChat] Connection state:', this.pc?.connectionState);
+        if (this.pc?.connectionState === 'failed' || this.pc?.connectionState === 'disconnected') {
+          console.error('[RealtimeChat] Connection lost');
+          this.onMessage({ type: 'connection_error', reason: this.pc?.connectionState });
+        }
+      };
+
+      this.pc.onicecandidateerror = (e) => {
+        console.error('[RealtimeChat] ICE candidate error:', e);
       };
 
       // Add local audio track

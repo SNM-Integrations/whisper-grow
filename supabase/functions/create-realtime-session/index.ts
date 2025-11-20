@@ -254,7 +254,7 @@ Be JARVIS. Be efficient. Be silent when told. Be ready when called.`;
       },
       body: JSON.stringify({
         model: "gpt-realtime",
-        voice: "alloy",
+        voice: "shimmer",
         instructions,
         tools,
         modalities: ["text", "audio"],
@@ -264,7 +264,7 @@ Be JARVIS. Be efficient. Be silent when told. Be ready when called.`;
           type: "server_vad",
           threshold: 0.5,
           prefix_padding_ms: 300,
-          silence_duration_ms: 700
+          silence_duration_ms: 1000
         },
         input_audio_transcription: {
           model: "whisper-1"
