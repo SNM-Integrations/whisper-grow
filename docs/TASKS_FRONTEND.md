@@ -13,21 +13,21 @@ Think: ChatGPT/Claude interface, not a dashboard with tabs.
 
 ### To Do
 
-#### Phase 1: Core Chat UI
-- [ ] Redesign Index/Home to be chat-first (full-screen conversation)
-- [ ] Create ChatMessage component (user vs assistant styling)
-- [ ] Create ChatInput component (text input + send button)
-- [ ] Create ConversationList sidebar (list of past conversations)
-- [ ] Connect chat UI to `POST /chat` backend endpoint
-- [ ] Handle loading states while waiting for AI response
-- [ ] Auto-scroll to latest message
-- [ ] Persist conversation ID across messages
+#### Phase 1: Core Chat UI ✅ DONE
+- [x] Redesign Index/Home to be chat-first (full-screen conversation)
+- [x] Create ChatMessage component (user vs assistant styling)
+- [x] Create ChatInput component (text input + send button)
+- [x] Create ConversationList sidebar (list of past conversations)
+- [x] Connect chat UI to `POST /chat` backend endpoint
+- [x] Handle loading states while waiting for AI response
+- [x] Auto-scroll to latest message
+- [x] Persist conversation ID across messages
 
 #### Phase 2: Polish & UX
 - [ ] Add typing indicator while AI is thinking
 - [ ] Support markdown rendering in AI responses
 - [ ] Add copy button for AI responses
-- [ ] Keyboard shortcuts (Enter to send, etc.)
+- [ ] Keyboard shortcuts (Enter to send, etc.) ✅ DONE
 - [ ] Mobile responsive design
 - [ ] Dark theme (primary), light theme (optional)
 
@@ -40,21 +40,31 @@ Think: ChatGPT/Claude interface, not a dashboard with tabs.
 
 #### Phase 4: Settings & Identity
 - [ ] Settings page for AI preferences
-- [ ] Display current model info
+- [ ] Display current model info ✅ DONE
 - [ ] Theme toggle
 - [ ] Clear conversation history option
 
-### Cleanup Tasks
-- [ ] Remove old dashboard tab structure
-- [ ] Remove MeetingMode component (not needed for MVP)
-- [ ] Remove Google Calendar integration (future phase)
-- [ ] Remove Supabase auth (replace with simpler local approach)
-- [ ] Clean up unused components
+### Cleanup Tasks ✅ DONE
+- [x] Remove old dashboard tab structure
+- [x] Remove MeetingMode component (not needed for MVP)
+- [x] Remove Google Calendar integration (future phase)
+- [x] Remove Supabase auth (replaced with local-first approach)
+- [x] Clean up unused components
 
 ### Completed
 - [x] Initial Lovable project setup
 - [x] shadcn/ui components installed
 - [x] Basic routing structure
+- [x] Redesign Index/Home to be chat-first (full-screen conversation)
+- [x] Create ChatMessage component (inline in Index.tsx for now)
+- [x] Create ChatInput component (inline in Index.tsx for now)
+- [x] Create ConversationList sidebar (inline in Index.tsx for now)
+- [x] Connect chat UI to `POST /chat` backend endpoint
+- [x] Handle loading states while waiting for AI response
+- [x] Auto-scroll to latest message
+- [x] Persist conversation ID across messages
+- [x] Remove Supabase auth dependencies
+- [x] Clean up unused components (NoteInput, NoteDialog, TaskList, TaskDialog)
 
 ---
 

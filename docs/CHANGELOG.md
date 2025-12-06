@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.2.0] - 2024-12-06
+
+### Frontend: Chat-First UI Implementation (Lovable)
+
+**What happened:** Rebuilt the frontend to match the local-first architecture with a ChatGPT-style interface.
+
+### Changed
+
+#### Pages
+- `src/pages/Index.tsx` - Complete rewrite as chat-first UI:
+  - Full-screen conversation interface
+  - Collapsible sidebar with conversation history
+  - Message bubbles (user/assistant styling)
+  - Text input with send button + placeholder mic button
+  - Backend health status indicator
+  - Connects to `POST /chat` at localhost:8000
+  - Loads conversations from `GET /conversations`
+  - Auto-scroll to latest message
+  
+- `src/pages/Settings.tsx` - Simplified for local-first:
+  - Removed all Supabase dependencies
+  - Shows backend service info (localhost:8000, Gemma model)
+  - Clean cards for Backend, AI Config, Data & Storage sections
+
+### Removed
+
+#### Components (had Supabase dependencies)
+- `src/components/NoteInput.tsx` - Was using Supabase functions
+- `src/components/NoteDialog.tsx` - Was using Supabase client
+- `src/components/TaskList.tsx` - Was using Supabase client
+- `src/components/TaskDialog.tsx` - Was using Supabase client
+
+### Fixed
+- Added missing `@vitejs/plugin-react` dependency
+- Added missing `lovable-tagger` dependency
+
+---
+
 ## [0.1.0] - 2024-12-06
 
 ### Major Architecture Change: Local-First Pivot
