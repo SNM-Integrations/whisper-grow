@@ -5,9 +5,7 @@ import { ThemeProvider } from "next-themes";
 import { Toaster as AppToaster } from "@/components/ui/toaster";
 import { Toaster as AppSonner } from "@/components/ui/sonner";
 import Index from "./pages/Index";
-import Auth from "./pages/Auth";
 import Settings from "./pages/Settings";
-import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 
 const ClientToasters = () => {
@@ -24,7 +22,7 @@ const ClientToasters = () => {
 
 const App = () => {
   const [queryClient] = useState(() => new QueryClient());
-  
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -32,10 +30,7 @@ const App = () => {
           <ClientToasters />
           <Routes>
             <Route path="/" element={<Index />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/auth" element={<Auth />} />
             <Route path="/settings" element={<Settings />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </ThemeProvider>

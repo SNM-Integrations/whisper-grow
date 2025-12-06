@@ -1,73 +1,82 @@
-# Welcome to your Lovable project
+# Second Brain
 
-## Project info
+A personal AI assistant that understands you, remembers for you, and acts for you.
 
-**URL**: https://lovable.dev/projects/eed02dec-e8b2-4e5e-a52f-9a4de393a610
+**One brain, many surfaces** - Windows app (local Gemma), Web/mobile (cloud LLM), same memory, same identity.
 
-## How can I edit this code?
+## Architecture
 
-There are several ways of editing your application.
+```
+Frontend (React)  →  Backend (Python/FastAPI)  →  Gemma (Ollama)
+     src/                  backend/                  localhost:11434
+```
 
-**Use Lovable**
+## Quick Start
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/eed02dec-e8b2-4e5e-a52f-9a4de393a610) and start prompting.
+### 1. Start the LLM (Ollama + Gemma)
 
-Changes made via Lovable will be committed automatically to this repo.
+```bash
+ollama run gemma3:4b
+```
 
-**Use your preferred IDE**
+### 2. Start the Backend
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate  # Windows
+pip install -r requirements.txt
+python main.py
+```
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Backend runs at `http://localhost:8000`
 
-Follow these steps:
+### 3. Start the Frontend
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Frontend runs at `http://localhost:5173`
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## Project Structure
 
-**Use GitHub Codespaces**
+```
+second-brain/
+├── docs/                 # Documentation
+│   ├── MASTER_PLAN.md    # Vision and architecture
+│   ├── API.md            # API contract
+│   ├── TASKS_BACKEND.md  # Backend task list
+│   └── TASKS_FRONTEND.md # Frontend task list
+├── backend/              # Python FastAPI service
+│   ├── main.py           # Brain service
+│   └── requirements.txt
+├── src/                  # React frontend
+│   ├── components/
+│   ├── pages/
+│   └── ...
+└── ...
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Development
 
-## What technologies are used for this project?
+This project is developed by two AI agents:
+- **Claude Code** - Backend development
+- **Lovable** - Frontend development
 
-This project is built with:
+See `docs/GUIDELINES.md` for collaboration workflow.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Documentation
 
-## How can I deploy this project?
+- [Master Plan](docs/MASTER_PLAN.md) - Overall vision and architecture
+- [API Specification](docs/API.md) - Backend API contract
+- [Guidelines](docs/GUIDELINES.md) - Development workflow
 
-Simply open [Lovable](https://lovable.dev/projects/eed02dec-e8b2-4e5e-a52f-9a4de393a610) and click on Share -> Publish.
+---
 
-## Can I connect a custom domain to my Lovable project?
+## Using Lovable
 
-Yes, you can!
+This project is connected to [Lovable](https://lovable.dev/projects/eed02dec-e8b2-4e5e-a52f-9a4de393a610) for frontend development.
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Changes made via Lovable will be committed automatically to this repo.
