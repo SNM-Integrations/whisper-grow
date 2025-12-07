@@ -2,8 +2,17 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Mic, Settings, Plus, MessageSquare } from "lucide-react";
+import { Send, Mic, Settings, Plus, MessageSquare, FileText, Search, Copy, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { 
+  sendMessage, 
+  fetchConversations, 
+  fetchConversation, 
+  checkHealth,
+  type Conversation 
+} from "@/lib/api";
+import NotesPanel from "@/components/notes/NotesPanel";
+import SearchPanel from "@/components/search/SearchPanel";
 
 interface Message {
   id: string;
@@ -12,14 +21,7 @@ interface Message {
   timestamp: Date;
 }
 
-interface Conversation {
-  id: string;
-  title: string;
-  lastMessage: string;
-  updatedAt: Date;
-}
-
-const API_BASE = "http://localhost:8000";
+type SidebarTab = "chat" | "notes" | "search";
 
 const Index = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -28,14 +30,16 @@ const Index = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarTab, setSidebarTab] = useState<SidebarTab>("chat");
   const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Check backend health on mount
   useEffect(() => {
     checkBackendHealth();
-    fetchConversations();
+    loadConversations();
   }, []);
 
   // Auto-scroll to bottom when messages change
@@ -44,28 +48,13 @@ const Index = () => {
   }, [messages]);
 
   const checkBackendHealth = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/health`);
-      if (response.ok) {
-        setBackendStatus("connected");
-      } else {
-        setBackendStatus("disconnected");
-      }
-    } catch {
-      setBackendStatus("disconnected");
-    }
+    const health = await checkHealth();
+    setBackendStatus(health ? "connected" : "disconnected");
   };
 
-  const fetchConversations = async () => {
-    try {
-      const response = await fetch(`${API_BASE}/conversations`);
-      if (response.ok) {
-        const data = await response.json();
-        setConversations(data.conversations || []);
-      }
-    } catch {
-      // Backend not available yet
-    }
+  const loadConversations = async () => {
+    const data = await fetchConversations();
+    setConversations(data);
   };
 
   const handleSend = async () => {
@@ -83,18 +72,7 @@ const Index = () => {
     setIsLoading(true);
 
     try {
-      const response = await fetch(`${API_BASE}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: userMessage.content,
-          conversation_id: conversationId,
-        }),
-      });
-
-      if (!response.ok) throw new Error("Failed to get response");
-
-      const data = await response.json();
+      const data = await sendMessage(userMessage.content, conversationId);
       
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -105,7 +83,7 @@ const Index = () => {
 
       setMessages((prev) => [...prev, assistantMessage]);
       setConversationId(data.conversation_id);
-      fetchConversations();
+      loadConversations();
     } catch (error) {
       const errorMessage: Message = {
         id: crypto.randomUUID(),
@@ -133,22 +111,30 @@ const Index = () => {
 
   const loadConversation = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE}/conversations/${id}`);
-      if (response.ok) {
-        const data = await response.json();
-        setConversationId(id);
-        setMessages(
-          data.messages.map((m: any) => ({
-            id: crypto.randomUUID(),
-            role: m.role,
-            content: m.content,
-            timestamp: new Date(m.timestamp),
-          }))
-        );
-      }
+      const data = await fetchConversation(id);
+      setConversationId(id);
+      setMessages(
+        data.messages.map((m: any) => ({
+          id: crypto.randomUUID(),
+          role: m.role,
+          content: m.content,
+          timestamp: new Date(m.timestamp),
+        }))
+      );
     } catch {
       // Handle error
     }
+  };
+
+  const copyToClipboard = async (text: string, messageId: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedId(messageId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleSearchSelectConversation = (id: string) => {
+    loadConversation(id);
+    setSidebarTab("chat");
   };
 
   return (
@@ -157,45 +143,92 @@ const Index = () => {
       <div
         className={cn(
           "border-r border-border bg-card/50 flex flex-col transition-all duration-300",
-          sidebarOpen ? "w-64" : "w-0 overflow-hidden"
+          sidebarOpen ? "w-72" : "w-0 overflow-hidden"
         )}
       >
-        <div className="p-4 border-b border-border">
+        {/* Sidebar tabs */}
+        <div className="p-2 border-b border-border flex gap-1">
           <Button
-            onClick={startNewConversation}
-            className="w-full justify-start gap-2"
-            variant="outline"
+            size="sm"
+            variant={sidebarTab === "chat" ? "secondary" : "ghost"}
+            className="flex-1"
+            onClick={() => setSidebarTab("chat")}
           >
-            <Plus className="h-4 w-4" />
-            New Chat
+            <MessageSquare className="h-4 w-4 mr-1" />
+            Chat
+          </Button>
+          <Button
+            size="sm"
+            variant={sidebarTab === "notes" ? "secondary" : "ghost"}
+            className="flex-1"
+            onClick={() => setSidebarTab("notes")}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Notes
+          </Button>
+          <Button
+            size="sm"
+            variant={sidebarTab === "search" ? "secondary" : "ghost"}
+            className="flex-1"
+            onClick={() => setSidebarTab("search")}
+          >
+            <Search className="h-4 w-4 mr-1" />
+            Search
           </Button>
         </div>
-        
-        <ScrollArea className="flex-1">
-          <div className="p-2 space-y-1">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => loadConversation(conv.id)}
-                className={cn(
-                  "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors",
-                  conversationId === conv.id && "bg-accent"
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate text-sm">{conv.title}</span>
-                </div>
-              </button>
-            ))}
-            {conversations.length === 0 && (
-              <p className="text-sm text-muted-foreground p-3">
-                No conversations yet
-              </p>
-            )}
-          </div>
-        </ScrollArea>
 
+        {/* Sidebar content */}
+        <div className="flex-1 overflow-hidden">
+          {sidebarTab === "chat" && (
+            <div className="flex flex-col h-full">
+              <div className="p-4 border-b border-border">
+                <Button
+                  onClick={startNewConversation}
+                  className="w-full justify-start gap-2"
+                  variant="outline"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Chat
+                </Button>
+              </div>
+              
+              <ScrollArea className="flex-1">
+                <div className="p-2 space-y-1">
+                  {conversations.map((conv) => (
+                    <button
+                      key={conv.id}
+                      onClick={() => loadConversation(conv.id)}
+                      className={cn(
+                        "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors",
+                        conversationId === conv.id && "bg-accent"
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                        <span className="truncate text-sm">{conv.title}</span>
+                      </div>
+                    </button>
+                  ))}
+                  {conversations.length === 0 && (
+                    <p className="text-sm text-muted-foreground p-3">
+                      No conversations yet
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+            </div>
+          )}
+
+          {sidebarTab === "notes" && <NotesPanel />}
+          
+          {sidebarTab === "search" && (
+            <SearchPanel 
+              onSelectConversation={handleSearchSelectConversation}
+            />
+          )}
+        </div>
+
+        {/* Settings footer */}
         <div className="p-4 border-t border-border">
           <Button
             variant="ghost"
@@ -264,13 +297,29 @@ const Index = () => {
               >
                 <div
                   className={cn(
-                    "max-w-[80%] rounded-2xl px-4 py-3",
+                    "max-w-[80%] rounded-2xl px-4 py-3 group relative",
                     message.role === "user"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   )}
                 >
                   <p className="whitespace-pre-wrap">{message.content}</p>
+                  
+                  {/* Copy button for assistant messages */}
+                  {message.role === "assistant" && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="absolute -right-10 top-1 h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                      onClick={() => copyToClipboard(message.content, message.id)}
+                    >
+                      {copiedId === message.id ? (
+                        <Check className="h-4 w-4 text-green-500" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
@@ -280,8 +329,8 @@ const Index = () => {
                 <div className="bg-muted rounded-2xl px-4 py-3">
                   <div className="flex gap-1">
                     <span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce" />
-                    <span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce delay-100" />
-                    <span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce delay-200" />
+                    <span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce [animation-delay:100ms]" />
+                    <span className="w-2 h-2 bg-foreground/50 rounded-full animate-bounce [animation-delay:200ms]" />
                   </div>
                 </div>
               </div>
