@@ -18,6 +18,6 @@ export default defineConfig(({ mode }) => ({
     preserveSymlinks: false,
   },
   optimizeDeps: {
-    exclude: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime"],
+    include: ["react", "react-dom"],
   },
 }));

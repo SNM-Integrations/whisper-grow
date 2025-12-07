@@ -4,6 +4,99 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.4.0] - 2024-12-06
+
+### Backend: File Tools Implementation (Claude Code)
+
+**What happened:** Added file operations for reading, writing, and searching files within a sandboxed workspace.
+
+### Added
+
+#### File Manager (`backend/files.py`)
+- `FileManager` abstract base class for file operations
+- `LocalFileManager` - Local mode with workspace sandboxing (prevents directory traversal attacks)
+- Workspace folder at `backend/workspace/` for storing user files
+
+#### New API Endpoints (see `docs/API.md`)
+- `GET /files` - List files in a directory
+- `GET /files/{path}` - Read a file's contents
+- `PUT /files/{path}` - Write/create a file
+- `POST /files/{path}/append` - Append to a file
+- `DELETE /files/{path}` - Delete a file
+- `POST /files/search` - Search for files containing text
+- `POST /files/folder/{path}` - Create a folder
+
+#### Security Features
+- All file paths sandboxed within workspace folder
+- Directory traversal prevention (../ attacks blocked)
+- Only text files supported (binary files not processed)
+
+### Gen 1 Backend Complete!
+
+All backend requirements for Gen 1 are now complete:
+- ✅ Chat with Gemma via Ollama
+- ✅ Conversation history in SQLite
+- ✅ Notes with semantic memory (ChromaDB)
+- ✅ File tools (read, write, list, search)
+- ✅ Dual-mode architecture (local/cloud ready)
+
+Frontend still needs: Notes UI, File browser UI
+
+---
+
+## [0.3.0] - 2024-12-06
+
+### Backend: Memory System Implementation (Claude Code)
+
+**What happened:** Added complete memory system with notes, semantic search, and RAG integration.
+
+### Added
+
+#### Memory System (`backend/memory.py`)
+- `MemoryStore` abstract base class for memory operations
+- `ChromaMemoryStore` - Local mode using ChromaDB (file-based vector store)
+- `PgVectorMemoryStore` - Cloud mode using PostgreSQL + pgvector
+- Supports notes, memory chunks (conversation snippets, documents, web clips)
+- Semantic search across all memory types
+
+#### New API Endpoints (see `docs/API.md`)
+- `POST /notes` - Create a note
+- `GET /notes` - List all notes
+- `GET /notes/{id}` - Get a specific note
+- `PUT /notes/{id}` - Update a note
+- `DELETE /notes/{id}` - Delete a note
+- `POST /memory/search` - Semantic search across all memories
+- `POST /memory/add` - Add arbitrary content to memory
+
+#### RAG Integration in Chat
+- Chat now automatically retrieves relevant memories for context
+- `POST /chat` accepts `use_memory: bool` parameter (default: true)
+- Response includes `memory_used` showing which memories were retrieved
+
+#### Updated Files
+- `backend/main.py` - Added notes and memory endpoints, RAG integration
+- `backend/requirements.txt` - Added chromadb dependency
+- `docs/API.md` - Documented all new endpoints
+
+### For Lovable: Frontend Tasks
+
+Now that the backend memory system is ready, Lovable should:
+
+1. **Add a Notes tab/section in the sidebar:**
+   - List notes from `GET /notes`
+   - Create new notes with `POST /notes`
+   - Edit/delete notes
+
+2. **Show memory usage in chat:**
+   - Display `memory_used` from chat responses
+   - Show which notes/memories were used for context
+
+3. **Add a search feature:**
+   - Use `POST /memory/search` for semantic search
+   - Show search results in a modal or sidebar
+
+---
+
 ## [0.2.0] - 2024-12-06
 
 ### Frontend: Chat-First UI Implementation (Lovable)
