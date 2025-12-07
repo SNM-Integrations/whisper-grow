@@ -363,3 +363,5 @@ function MonthView({ currentDate, getEventsForDay, onEventClick, onDayClick }: M
     </div>
   );
 }
+
+export default CalendarView;
