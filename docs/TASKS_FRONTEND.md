@@ -24,19 +24,24 @@ Think: ChatGPT/Claude interface, not a dashboard with tabs.
 - [x] Persist conversation ID across messages
 
 #### Phase 2: Polish & UX
-- [ ] Add typing indicator while AI is thinking
+- [x] Add typing indicator while AI is thinking ✅ DONE
 - [ ] Support markdown rendering in AI responses
-- [ ] Add copy button for AI responses
-- [ ] Keyboard shortcuts (Enter to send, etc.) ✅ DONE
+- [x] Add copy button for AI responses ✅ DONE
+- [x] Keyboard shortcuts (Enter to send, etc.) ✅ DONE
 - [ ] Mobile responsive design
 - [ ] Dark theme (primary), light theme (optional)
 
-#### Phase 3: Notes Integration
+#### Phase 3: Notes Integration ✅ DONE
 - [ ] Add "Save as note" action on AI responses
-- [ ] Create NotesPanel (sidebar or modal)
-- [ ] Display saved notes
-- [ ] Search notes
-- [ ] Connect to backend notes endpoints when ready
+- [x] Create NotesPanel (sidebar or modal) ✅ DONE
+- [x] Display saved notes ✅ DONE
+- [x] Search notes ✅ DONE
+- [x] Connect to backend notes endpoints ✅ DONE
+
+#### Phase 3.5: Semantic Search ✅ DONE
+- [x] Create SearchPanel component ✅ DONE
+- [x] Connect to /memory/search endpoint ✅ DONE
+- [x] Display search results with relevance scores ✅ DONE
 
 #### Phase 4: Settings & Identity
 - [ ] Settings page for AI preferences
@@ -65,6 +70,13 @@ Think: ChatGPT/Claude interface, not a dashboard with tabs.
 - [x] Persist conversation ID across messages
 - [x] Remove Supabase auth dependencies
 - [x] Clean up unused components (NoteInput, NoteDialog, TaskList, TaskDialog)
+- [x] Created src/lib/api.ts - centralized API client
+- [x] Created src/components/notes/NotesPanel.tsx - notes list with CRUD
+- [x] Created src/components/notes/NoteEditor.tsx - note editor
+- [x] Created src/components/search/SearchPanel.tsx - semantic search UI
+- [x] Added sidebar tabs (Chat / Notes / Search)
+- [x] Added copy button on assistant messages
+- [x] Improved typing indicator animation
 
 ---
 
