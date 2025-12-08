@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContactsList } from "@/components/crm/ContactsList";
+import { LeadsList } from "@/components/crm/LeadsList";
 import { DealsPipeline } from "@/components/crm/DealsPipeline";
 import { CompaniesList } from "@/components/crm/CompaniesList";
+import { ClientsList } from "@/components/crm/ClientsList";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Users, Building2, TrendingUp } from "lucide-react";
+import { ArrowLeft, Users, UserPlus, Building2, Briefcase, TrendingUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const CRM = () => {
@@ -26,7 +28,7 @@ const CRM = () => {
           <div>
             <h1 className="text-2xl font-semibold text-foreground">CRM</h1>
             <p className="text-sm text-muted-foreground">
-              Manage your contacts, deals, and companies
+              Manage your contacts, leads, deals, and companies
             </p>
           </div>
         </div>
@@ -39,13 +41,21 @@ const CRM = () => {
               <Users className="h-4 w-4" />
               Contacts
             </TabsTrigger>
+            <TabsTrigger value="leads" className="gap-2">
+              <UserPlus className="h-4 w-4" />
+              Leads
+            </TabsTrigger>
             <TabsTrigger value="deals" className="gap-2">
               <TrendingUp className="h-4 w-4" />
               Deals
             </TabsTrigger>
-            <TabsTrigger value="companies" className="gap-2">
+            <TabsTrigger value="company-leads" className="gap-2">
               <Building2 className="h-4 w-4" />
-              Companies
+              Company Leads
+            </TabsTrigger>
+            <TabsTrigger value="clients" className="gap-2">
+              <Briefcase className="h-4 w-4" />
+              Clients
             </TabsTrigger>
           </TabsList>
 
@@ -53,12 +63,20 @@ const CRM = () => {
             <ContactsList />
           </TabsContent>
 
+          <TabsContent value="leads" className="mt-0">
+            <LeadsList />
+          </TabsContent>
+
           <TabsContent value="deals" className="mt-0">
             <DealsPipeline />
           </TabsContent>
 
-          <TabsContent value="companies" className="mt-0">
+          <TabsContent value="company-leads" className="mt-0">
             <CompaniesList />
+          </TabsContent>
+
+          <TabsContent value="clients" className="mt-0">
+            <ClientsList />
           </TabsContent>
         </Tabs>
       </main>
