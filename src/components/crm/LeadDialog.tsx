@@ -23,45 +23,45 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Contact } from "./ContactsList";
+import { Lead } from "./LeadsList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface ContactDialogProps {
+interface LeadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  contact: Contact | null;
+  lead: Lead | null;
 }
 
-interface ContactFormData {
+interface LeadFormData {
   name: string;
   email: string;
   phone: string;
   company: string;
-  relationship: Contact["relationship"];
+  status: Lead["status"];
 }
 
-export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
+export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
 
-  const form = useForm<ContactFormData>({
+  const form = useForm<LeadFormData>({
     defaultValues: {
       name: "",
       email: "",
       phone: "",
       company: "",
-      relationship: "network",
+      status: "new",
     },
   });
 
   useEffect(() => {
-    if (contact) {
+    if (lead) {
       form.reset({
-        name: contact.name,
-        email: contact.email,
-        phone: contact.phone,
-        company: contact.company,
-        relationship: contact.relationship,
+        name: lead.name,
+        email: lead.email,
+        phone: lead.phone,
+        company: lead.company,
+        status: lead.status,
       });
     } else {
       form.reset({
@@ -69,12 +69,12 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
         email: "",
         phone: "",
         company: "",
-        relationship: "network",
+        status: "new",
       });
     }
-  }, [contact, form]);
+  }, [lead, form]);
 
-  const onSubmit = async (data: ContactFormData) => {
+  const onSubmit = async (data: LeadFormData) => {
     setIsSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -84,35 +84,35 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
       return;
     }
 
-    const contactData = {
+    const leadData = {
       name: data.name,
       email: data.email || null,
       phone: data.phone || null,
       company: data.company || null,
-      contact_type: "contact" as const,
-      tags: [data.relationship],
+      contact_type: "lead" as const,
+      tags: [data.status],
     };
 
-    if (contact) {
+    if (lead) {
       const { error } = await supabase
         .from("contacts")
-        .update({ ...contactData, updated_at: new Date().toISOString() })
-        .eq("id", contact.id);
+        .update({ ...leadData, updated_at: new Date().toISOString() })
+        .eq("id", lead.id);
       
       if (error) {
-        toast.error("Failed to update contact");
+        toast.error("Failed to update lead");
       } else {
-        toast.success("Contact updated");
+        toast.success("Lead updated");
       }
     } else {
       const { error } = await supabase
         .from("contacts")
-        .insert({ ...contactData, user_id: user.id });
+        .insert({ ...leadData, user_id: user.id });
       
       if (error) {
-        toast.error("Failed to create contact");
+        toast.error("Failed to create lead");
       } else {
-        toast.success("Contact created");
+        toast.success("Lead created");
       }
     }
 
@@ -124,7 +124,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{contact ? "Edit Contact" : "Add Contact"}</DialogTitle>
+          <DialogTitle>{lead ? "Edit Lead" : "Add Lead"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -183,21 +183,23 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
             />
             <FormField
               control={form.control}
-              name="relationship"
+              name="status"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Relationship</FormLabel>
+                  <FormLabel>Status</FormLabel>
                   <Select onValueChange={field.onChange} defaultValue={field.value}>
                     <FormControl>
                       <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select relationship" />
+                        <SelectValue placeholder="Select status" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-popover border-border">
-                      <SelectItem value="friend">Friend</SelectItem>
-                      <SelectItem value="colleague">Colleague</SelectItem>
-                      <SelectItem value="partner">Partner</SelectItem>
-                      <SelectItem value="network">Network</SelectItem>
+                      <SelectItem value="new">New</SelectItem>
+                      <SelectItem value="contacted">Contacted</SelectItem>
+                      <SelectItem value="qualified">Qualified</SelectItem>
+                      <SelectItem value="proposal">Proposal</SelectItem>
+                      <SelectItem value="won">Won</SelectItem>
+                      <SelectItem value="lost">Lost</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -209,7 +211,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : contact ? "Update" : "Create"}
+                {isSaving ? "Saving..." : lead ? "Update" : "Create"}
               </Button>
             </div>
           </form>

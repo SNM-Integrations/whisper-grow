@@ -46,6 +46,7 @@ export type Database = {
       }
       calendar_events: {
         Row: {
+          assigned_to: string | null
           created_at: string
           description: string | null
           end_time: string
@@ -62,6 +63,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["resource_visibility"]
         }
         Insert: {
+          assigned_to?: string | null
           created_at?: string
           description?: string | null
           end_time: string
@@ -78,6 +80,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["resource_visibility"]
         }
         Update: {
+          assigned_to?: string | null
           created_at?: string
           description?: string | null
           end_time?: string
@@ -137,6 +140,8 @@ export type Database = {
       }
       companies: {
         Row: {
+          assigned_to: string | null
+          company_type: Database["public"]["Enums"]["company_type"]
           created_at: string
           employees: number | null
           id: string
@@ -151,6 +156,8 @@ export type Database = {
           website: string | null
         }
         Insert: {
+          assigned_to?: string | null
+          company_type?: Database["public"]["Enums"]["company_type"]
           created_at?: string
           employees?: number | null
           id?: string
@@ -165,6 +172,8 @@ export type Database = {
           website?: string | null
         }
         Update: {
+          assigned_to?: string | null
+          company_type?: Database["public"]["Enums"]["company_type"]
           created_at?: string
           employees?: number | null
           id?: string
@@ -190,7 +199,9 @@ export type Database = {
       }
       contacts: {
         Row: {
+          assigned_to: string | null
           company: string | null
+          contact_type: Database["public"]["Enums"]["contact_type"]
           created_at: string
           email: string | null
           id: string
@@ -205,7 +216,9 @@ export type Database = {
           visibility: Database["public"]["Enums"]["resource_visibility"]
         }
         Insert: {
+          assigned_to?: string | null
           company?: string | null
+          contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
           id?: string
@@ -220,7 +233,9 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["resource_visibility"]
         }
         Update: {
+          assigned_to?: string | null
           company?: string | null
+          contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
           id?: string
@@ -284,6 +299,7 @@ export type Database = {
       }
       deals: {
         Row: {
+          assigned_to: string | null
           company_id: string | null
           contact_id: string | null
           created_at: string
@@ -299,6 +315,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["resource_visibility"]
         }
         Insert: {
+          assigned_to?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string
@@ -314,6 +331,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["resource_visibility"]
         }
         Update: {
+          assigned_to?: string | null
           company_id?: string | null
           contact_id?: string | null
           created_at?: string
@@ -714,6 +732,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          assigned_to: string | null
           category_id: string | null
           completed: boolean
           created_at: string
@@ -730,6 +749,7 @@ export type Database = {
           visibility: Database["public"]["Enums"]["resource_visibility"]
         }
         Insert: {
+          assigned_to?: string | null
           category_id?: string | null
           completed?: boolean
           created_at?: string
@@ -746,6 +766,7 @@ export type Database = {
           visibility?: Database["public"]["Enums"]["resource_visibility"]
         }
         Update: {
+          assigned_to?: string | null
           category_id?: string | null
           completed?: boolean
           created_at?: string
@@ -817,6 +838,8 @@ export type Database = {
       }
     }
     Enums: {
+      company_type: "lead" | "client"
+      contact_type: "contact" | "lead"
       note_type: "original" | "extracted"
       org_role: "owner" | "admin" | "member"
       resource_visibility: "personal" | "organization"
@@ -947,6 +970,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      company_type: ["lead", "client"],
+      contact_type: ["contact", "lead"],
       note_type: ["original", "extracted"],
       org_role: ["owner", "admin", "member"],
       resource_visibility: ["personal", "organization"],

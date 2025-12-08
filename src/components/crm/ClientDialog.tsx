@@ -23,48 +23,48 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CompanyLead } from "./CompaniesList";
+import { Client } from "./ClientsList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-interface CompanyDialogProps {
+interface ClientDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  company: CompanyLead | null;
+  client: Client | null;
 }
 
-interface CompanyFormData {
+interface ClientFormData {
   name: string;
   industry: string;
   website: string;
   employees: string;
   revenue: string;
-  status: CompanyLead["status"];
+  status: Client["status"];
 }
 
-export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProps) {
+export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
 
-  const form = useForm<CompanyFormData>({
+  const form = useForm<ClientFormData>({
     defaultValues: {
       name: "",
       industry: "",
       website: "",
       employees: "",
       revenue: "",
-      status: "new",
+      status: "active",
     },
   });
 
   useEffect(() => {
-    if (company) {
+    if (client) {
       form.reset({
-        name: company.name,
-        industry: company.industry,
-        website: company.website,
-        employees: company.employees,
-        revenue: company.revenue,
-        status: company.status,
+        name: client.name,
+        industry: client.industry,
+        website: client.website,
+        employees: client.employees,
+        revenue: client.revenue,
+        status: client.status,
       });
     } else {
       form.reset({
@@ -73,12 +73,12 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
         website: "",
         employees: "",
         revenue: "",
-        status: "new",
+        status: "active",
       });
     }
-  }, [company, form]);
+  }, [client, form]);
 
-  const onSubmit = async (data: CompanyFormData) => {
+  const onSubmit = async (data: ClientFormData) => {
     setIsSaving(true);
 
     const { data: { user } } = await supabase.auth.getUser();
@@ -94,36 +94,36 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
       if (match) employeeCount = parseInt(match[0], 10);
     }
 
-    const companyData = {
+    const clientData = {
       name: data.name,
       industry: data.industry || null,
       website: data.website || null,
       employees: employeeCount,
       revenue: data.revenue || null,
-      company_type: "lead" as const,
+      company_type: "client" as const,
       notes: data.status,
     };
 
-    if (company) {
+    if (client) {
       const { error } = await supabase
         .from("companies")
-        .update({ ...companyData, updated_at: new Date().toISOString() })
-        .eq("id", company.id);
+        .update({ ...clientData, updated_at: new Date().toISOString() })
+        .eq("id", client.id);
       
       if (error) {
-        toast.error("Failed to update company lead");
+        toast.error("Failed to update client");
       } else {
-        toast.success("Company lead updated");
+        toast.success("Client updated");
       }
     } else {
       const { error } = await supabase
         .from("companies")
-        .insert({ ...companyData, user_id: user.id });
+        .insert({ ...clientData, user_id: user.id });
       
       if (error) {
-        toast.error("Failed to create company lead");
+        toast.error("Failed to create client");
       } else {
-        toast.success("Company lead created");
+        toast.success("Client created");
       }
     }
 
@@ -135,7 +135,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>{company ? "Edit Company Lead" : "Add Company Lead"}</DialogTitle>
+          <DialogTitle>{client ? "Edit Client" : "Add Client"}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -246,12 +246,9 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent className="bg-popover border-border">
-                      <SelectItem value="new">New</SelectItem>
-                      <SelectItem value="contacted">Contacted</SelectItem>
-                      <SelectItem value="qualified">Qualified</SelectItem>
-                      <SelectItem value="proposal">Proposal</SelectItem>
-                      <SelectItem value="won">Won</SelectItem>
-                      <SelectItem value="lost">Lost</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="paused">Paused</SelectItem>
+                      <SelectItem value="churned">Churned</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />
@@ -263,7 +260,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
                 Cancel
               </Button>
               <Button type="submit" disabled={isSaving}>
-                {isSaving ? "Saving..." : company ? "Update" : "Create"}
+                {isSaving ? "Saving..." : client ? "Update" : "Create"}
               </Button>
             </div>
           </form>

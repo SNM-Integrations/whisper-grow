@@ -20,58 +20,51 @@ import {
   Edit,
   Trash2,
 } from "lucide-react";
-import { CompanyDialog } from "./CompanyDialog";
+import { ClientDialog } from "./ClientDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-// Company Lead (prospective company)
-export interface CompanyLead {
+export interface Client {
   id: string;
   name: string;
   industry: string;
   website: string;
   employees: string;
   revenue: string;
-  status: "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
+  status: "active" | "paused" | "churned";
   assigned_to: string | null;
 }
 
-const statusColors: Record<CompanyLead["status"], string> = {
-  new: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  contacted: "bg-amber-500/10 text-amber-500 border-amber-500/20",
-  qualified: "bg-purple-500/10 text-purple-500 border-purple-500/20",
-  proposal: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
-  won: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  lost: "bg-destructive/10 text-destructive border-destructive/20",
+const statusColors: Record<Client["status"], string> = {
+  active: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  paused: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  churned: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export function CompaniesList() {
+export function ClientsList() {
   const [search, setSearch] = useState("");
-  const [companies, setCompanies] = useState<CompanyLead[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCompany, setEditingCompany] = useState<CompanyLead | null>(null);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
 
-  const loadCompanies = async () => {
+  const loadClients = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("companies")
       .select("*")
-      .eq("company_type", "lead")
+      .eq("company_type", "client")
       .order("name", { ascending: true });
 
     if (error) {
-      console.error("Error fetching company leads:", error);
-      setCompanies([]);
+      console.error("Error fetching clients:", error);
+      setClients([]);
     } else {
-      setCompanies(
+      setClients(
         (data || []).map((c) => {
-          let status: CompanyLead["status"] = "new";
-          if (c.notes?.toLowerCase().includes("won")) status = "won";
-          else if (c.notes?.toLowerCase().includes("lost")) status = "lost";
-          else if (c.notes?.toLowerCase().includes("proposal")) status = "proposal";
-          else if (c.notes?.toLowerCase().includes("qualified")) status = "qualified";
-          else if (c.notes?.toLowerCase().includes("contacted")) status = "contacted";
+          let status: Client["status"] = "active";
+          if (c.notes?.toLowerCase().includes("churned")) status = "churned";
+          else if (c.notes?.toLowerCase().includes("paused")) status = "paused";
 
           return {
             id: c.id,
@@ -90,46 +83,46 @@ export function CompaniesList() {
   };
 
   useEffect(() => {
-    loadCompanies();
+    loadClients();
   }, []);
 
-  const filteredCompanies = companies.filter(
-    (company) =>
-      company.name.toLowerCase().includes(search.toLowerCase()) ||
-      company.industry.toLowerCase().includes(search.toLowerCase())
+  const filteredClients = clients.filter(
+    (client) =>
+      client.name.toLowerCase().includes(search.toLowerCase()) ||
+      client.industry.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleEdit = (company: CompanyLead) => {
-    setEditingCompany(company);
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
     setDialogOpen(true);
   };
 
   const handleAdd = () => {
-    setEditingCompany(null);
+    setEditingClient(null);
     setDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("companies").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete company lead");
+      toast.error("Failed to delete client");
     } else {
-      setCompanies((prev) => prev.filter((c) => c.id !== id));
-      toast.success("Company lead deleted");
+      setClients((prev) => prev.filter((c) => c.id !== id));
+      toast.success("Client deleted");
     }
   };
 
   const handleDialogClose = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
-      loadCompanies();
+      loadClients();
     }
   };
 
   if (isLoading) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        Loading company leads...
+        Loading clients...
       </div>
     );
   }
@@ -140,7 +133,7 @@ export function CompaniesList() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search company leads..."
+            placeholder="Search clients..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -148,30 +141,30 @@ export function CompaniesList() {
         </div>
         <Button onClick={handleAdd} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Company Lead
+          Add Client
         </Button>
       </div>
 
-      {filteredCompanies.length === 0 ? (
+      {filteredClients.length === 0 ? (
         <div className="p-8 text-center text-muted-foreground">
-          {search ? "No company leads found" : "No company leads yet. Add one!"}
+          {search ? "No clients found" : "No clients yet. Add one!"}
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredCompanies.map((company) => (
+          {filteredClients.map((client) => (
             <Card
-              key={company.id}
+              key={client.id}
               className="hover:shadow-md transition-shadow bg-card border-border"
             >
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                      <Building2 className="h-5 w-5 text-primary" />
+                    <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-emerald-500" />
                     </div>
                     <div>
-                      <h3 className="font-medium text-foreground">{company.name}</h3>
-                      <p className="text-sm text-muted-foreground">{company.industry}</p>
+                      <h3 className="font-medium text-foreground">{client.name}</h3>
+                      <p className="text-sm text-muted-foreground">{client.industry}</p>
                     </div>
                   </div>
                   <DropdownMenu>
@@ -183,14 +176,14 @@ export function CompaniesList() {
                     <DropdownMenuContent align="end" className="bg-popover border-border">
                       <DropdownMenuItem
                         className="gap-2 cursor-pointer"
-                        onClick={() => handleEdit(company)}
+                        onClick={() => handleEdit(client)}
                       >
                         <Edit className="h-4 w-4" />
                         Edit
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                        onClick={() => handleDelete(company.id)}
+                        onClick={() => handleDelete(client.id)}
                       >
                         <Trash2 className="h-4 w-4" />
                         Delete
@@ -200,16 +193,16 @@ export function CompaniesList() {
                 </div>
 
                 <div className="space-y-3">
-                  {company.website && (
+                  {client.website && (
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Globe className="h-4 w-4" />
                       <a
-                        href={`https://${company.website}`}
+                        href={`https://${client.website}`}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-primary transition-colors"
                       >
-                        {company.website}
+                        {client.website}
                       </a>
                     </div>
                   )}
@@ -217,17 +210,17 @@ export function CompaniesList() {
                   <div className="flex items-center gap-4 text-sm">
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <Users className="h-4 w-4" />
-                      {company.employees}
+                      {client.employees}
                     </div>
                     <div className="flex items-center gap-1.5 text-muted-foreground">
                       <DollarSign className="h-4 w-4" />
-                      {company.revenue}
+                      {client.revenue}
                     </div>
                   </div>
 
                   <div className="flex items-center justify-end pt-3 border-t border-border">
-                    <Badge variant="outline" className={statusColors[company.status]}>
-                      {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
+                    <Badge variant="outline" className={statusColors[client.status]}>
+                      {client.status.charAt(0).toUpperCase() + client.status.slice(1)}
                     </Badge>
                   </div>
                 </div>
@@ -237,10 +230,10 @@ export function CompaniesList() {
         </div>
       )}
 
-      <CompanyDialog
+      <ClientDialog
         open={dialogOpen}
         onOpenChange={handleDialogClose}
-        company={editingCompany}
+        client={editingClient}
       />
     </div>
   );

@@ -17,54 +17,58 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
-import { ContactDialog } from "./ContactDialog";
+import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, UserCheck } from "lucide-react";
+import { LeadDialog } from "./LeadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export interface Contact {
+export interface Lead {
   id: string;
   name: string;
   email: string;
   phone: string;
   company: string;
-  relationship: "friend" | "colleague" | "partner" | "network";
+  status: "new" | "contacted" | "qualified" | "proposal" | "won" | "lost";
   lastContact: string;
   assigned_to: string | null;
 }
 
-const relationshipColors: Record<Contact["relationship"], string> = {
-  friend: "bg-pink-500/10 text-pink-500 border-pink-500/20",
-  colleague: "bg-blue-500/10 text-blue-500 border-blue-500/20",
-  partner: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-  network: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+const statusColors: Record<Lead["status"], string> = {
+  new: "bg-blue-500/10 text-blue-500 border-blue-500/20",
+  contacted: "bg-amber-500/10 text-amber-500 border-amber-500/20",
+  qualified: "bg-purple-500/10 text-purple-500 border-purple-500/20",
+  proposal: "bg-cyan-500/10 text-cyan-500 border-cyan-500/20",
+  won: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  lost: "bg-destructive/10 text-destructive border-destructive/20",
 };
 
-export function ContactsList() {
+export function LeadsList() {
   const [search, setSearch] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
 
-  const loadContacts = async () => {
+  const loadLeads = async () => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("contacts")
       .select("*")
-      .eq("contact_type", "contact")
-      .order("name", { ascending: true });
+      .eq("contact_type", "lead")
+      .order("updated_at", { ascending: false });
 
     if (error) {
-      console.error("Error fetching contacts:", error);
-      setContacts([]);
+      console.error("Error fetching leads:", error);
+      setLeads([]);
     } else {
-      setContacts(
+      setLeads(
         (data || []).map((c) => {
-          let relationship: Contact["relationship"] = "network";
-          if (c.tags?.includes("friend")) relationship = "friend";
-          else if (c.tags?.includes("colleague")) relationship = "colleague";
-          else if (c.tags?.includes("partner")) relationship = "partner";
+          let status: Lead["status"] = "new";
+          if (c.tags?.includes("won")) status = "won";
+          else if (c.tags?.includes("lost")) status = "lost";
+          else if (c.tags?.includes("proposal")) status = "proposal";
+          else if (c.tags?.includes("qualified")) status = "qualified";
+          else if (c.tags?.includes("contacted")) status = "contacted";
 
           return {
             id: c.id,
@@ -72,7 +76,7 @@ export function ContactsList() {
             email: c.email || "",
             phone: c.phone || "",
             company: c.company || "",
-            relationship,
+            status,
             lastContact: new Date(c.updated_at).toLocaleDateString(),
             assigned_to: c.assigned_to,
           };
@@ -83,47 +87,61 @@ export function ContactsList() {
   };
 
   useEffect(() => {
-    loadContacts();
+    loadLeads();
   }, []);
 
-  const filteredContacts = contacts.filter(
-    (contact) =>
-      contact.name.toLowerCase().includes(search.toLowerCase()) ||
-      contact.email.toLowerCase().includes(search.toLowerCase()) ||
-      contact.company.toLowerCase().includes(search.toLowerCase())
+  const filteredLeads = leads.filter(
+    (lead) =>
+      lead.name.toLowerCase().includes(search.toLowerCase()) ||
+      lead.email.toLowerCase().includes(search.toLowerCase()) ||
+      lead.company.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleEdit = (contact: Contact) => {
-    setEditingContact(contact);
+  const handleEdit = (lead: Lead) => {
+    setEditingLead(lead);
     setDialogOpen(true);
   };
 
   const handleAdd = () => {
-    setEditingContact(null);
+    setEditingLead(null);
     setDialogOpen(true);
   };
 
   const handleDelete = async (id: string) => {
     const { error } = await supabase.from("contacts").delete().eq("id", id);
     if (error) {
-      toast.error("Failed to delete contact");
+      toast.error("Failed to delete lead");
     } else {
-      setContacts((prev) => prev.filter((c) => c.id !== id));
-      toast.success("Contact deleted");
+      setLeads((prev) => prev.filter((l) => l.id !== id));
+      toast.success("Lead deleted");
+    }
+  };
+
+  const handleConvertToContact = async (lead: Lead) => {
+    const { error } = await supabase
+      .from("contacts")
+      .update({ contact_type: "contact" })
+      .eq("id", lead.id);
+    
+    if (error) {
+      toast.error("Failed to convert lead");
+    } else {
+      toast.success("Lead converted to contact");
+      loadLeads();
     }
   };
 
   const handleDialogClose = (open: boolean) => {
     setDialogOpen(open);
     if (!open) {
-      loadContacts(); // Refresh list after dialog closes
+      loadLeads();
     }
   };
 
   if (isLoading) {
     return (
       <div className="p-8 text-center text-muted-foreground">
-        Loading contacts...
+        Loading leads...
       </div>
     );
   }
@@ -134,7 +152,7 @@ export function ContactsList() {
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Search contacts..."
+            placeholder="Search leads..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
@@ -142,7 +160,7 @@ export function ContactsList() {
         </div>
         <Button onClick={handleAdd} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Contact
+          Add Lead
         </Button>
       </div>
 
@@ -150,46 +168,46 @@ export function ContactsList() {
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead>Contact</TableHead>
+              <TableHead>Lead</TableHead>
               <TableHead>Company</TableHead>
-              <TableHead>Relationship</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Last Contact</TableHead>
               <TableHead className="w-[50px]"></TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredContacts.length === 0 ? (
+            {filteredLeads.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  {search ? "No contacts found" : "No contacts yet. Add one!"}
+                  {search ? "No leads found" : "No leads yet. Add one!"}
                 </TableCell>
               </TableRow>
             ) : (
-              filteredContacts.map((contact) => (
-                <TableRow key={contact.id} className="cursor-pointer">
+              filteredLeads.map((lead) => (
+                <TableRow key={lead.id} className="cursor-pointer">
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
-                        <AvatarFallback className="bg-primary/10 text-primary text-sm">
-                          {contact.name
+                        <AvatarFallback className="bg-amber-500/10 text-amber-500 text-sm">
+                          {lead.name
                             .split(" ")
                             .map((n) => n[0])
                             .join("")}
                         </AvatarFallback>
                       </Avatar>
                       <div>
-                        <p className="font-medium text-foreground">{contact.name}</p>
-                        <p className="text-sm text-muted-foreground">{contact.email}</p>
+                        <p className="font-medium text-foreground">{lead.name}</p>
+                        <p className="text-sm text-muted-foreground">{lead.email}</p>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.company}</TableCell>
+                  <TableCell className="text-muted-foreground">{lead.company}</TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={relationshipColors[contact.relationship]}>
-                      {contact.relationship.charAt(0).toUpperCase() + contact.relationship.slice(1)}
+                    <Badge variant="outline" className={statusColors[lead.status]}>
+                      {lead.status.charAt(0).toUpperCase() + lead.status.slice(1)}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.lastContact}</TableCell>
+                  <TableCell className="text-muted-foreground">{lead.lastContact}</TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -208,14 +226,21 @@ export function ContactsList() {
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 cursor-pointer"
-                          onClick={() => handleEdit(contact)}
+                          onClick={() => handleConvertToContact(lead)}
+                        >
+                          <UserCheck className="h-4 w-4" />
+                          Convert to Contact
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="gap-2 cursor-pointer"
+                          onClick={() => handleEdit(lead)}
                         >
                           <Edit className="h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 cursor-pointer text-destructive focus:text-destructive"
-                          onClick={() => handleDelete(contact.id)}
+                          onClick={() => handleDelete(lead.id)}
                         >
                           <Trash2 className="h-4 w-4" />
                           Delete
@@ -230,10 +255,10 @@ export function ContactsList() {
         </Table>
       </div>
 
-      <ContactDialog
+      <LeadDialog
         open={dialogOpen}
         onOpenChange={handleDialogClose}
-        contact={editingContact}
+        lead={editingLead}
       />
     </div>
   );
