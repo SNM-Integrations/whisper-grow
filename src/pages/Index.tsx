@@ -114,10 +114,12 @@ const Index = () => {
 
       let assistantContent = "";
       
+      console.log("Starting streamChat with messages:", chatMessages);
       await streamChat({
         messages: chatMessages,
         conversationId: currentConvId,
         onDelta: (delta) => {
+          console.log("Received delta:", delta);
           assistantContent += delta;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -135,6 +137,7 @@ const Index = () => {
           });
         },
         onDone: async () => {
+          console.log("Stream done. Full content:", assistantContent);
           // Save assistant message
           if (currentConvId && assistantContent) {
             await saveMessage(currentConvId, "assistant", assistantContent);
