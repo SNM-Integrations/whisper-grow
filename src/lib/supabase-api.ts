@@ -507,29 +507,41 @@ export async function streamChat({
   onDone: () => void;
 }) {
   const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+  console.log("Chat URL:", CHAT_URL);
+  console.log("VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
   
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
+    console.error("No session found - user not authenticated");
     throw new Error("Not authenticated");
   }
+  console.log("Session found, user:", session.user.email);
 
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session.access_token}`,
-    },
-    body: JSON.stringify({ messages, conversationId }),
-  });
+  try {
+    console.log("Calling edge function with messages:", messages.length);
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ messages, conversationId }),
+    });
 
-  if (!resp.ok) {
-    const errorData = await resp.json().catch(() => ({}));
-    throw new Error(errorData.error || `Chat failed: ${resp.status}`);
-  }
+    console.log("Response status:", resp.status);
 
-  if (!resp.body) {
-    throw new Error("No response body");
-  }
+    if (!resp.ok) {
+      const errorText = await resp.text();
+      console.error("Error response:", errorText);
+      throw new Error(errorText || `Chat failed: ${resp.status}`);
+    }
+
+    if (!resp.body) {
+      console.error("No response body");
+      throw new Error("No response body");
+    }
+    
+    console.log("Got response body, starting stream...");
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
@@ -585,4 +597,8 @@ export async function streamChat({
   }
 
   onDone();
+  } catch (error) {
+    console.error("Fetch error:", error);
+    throw error;
+  }
 }
