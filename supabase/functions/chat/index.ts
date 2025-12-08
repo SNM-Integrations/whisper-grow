@@ -6,6 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// n8n MCP endpoint
+const N8N_MCP_URL = "https://n8n-08HY.sliplane.app/mcp/721deb26-44e7-40e0-87a5-60204e614109";
+
 // Tool definitions for the AI
 const tools = [
   {
@@ -157,8 +160,132 @@ const tools = [
         required: ["title"]
       }
     }
+  },
+  // n8n workflow tools
+  {
+    type: "function",
+    function: {
+      name: "send_email",
+      description: "Send an email via Gmail. Use this when the user asks to send an email or message someone.",
+      parameters: {
+        type: "object",
+        properties: {
+          to: { type: "string", description: "Recipient email address" },
+          subject: { type: "string", description: "Email subject" },
+          message: { type: "string", description: "Email body content" }
+        },
+        required: ["to", "subject", "message"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_google_calendar_events",
+      description: "Get events from Google Calendar for a date range",
+      parameters: {
+        type: "object",
+        properties: {
+          calendar: { type: "string", description: "Calendar email (e.g. nils.wahlin@snmintegrations.se or samuel.ekeblad@snmintegrations.se)" },
+          after: { type: "string", description: "Start date in ISO format" },
+          before: { type: "string", description: "End date in ISO format" },
+          return_all: { type: "boolean", description: "Return all events" }
+        },
+        required: ["calendar", "after", "before"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "check_availability",
+      description: "Check availability in Google Calendar for a person",
+      parameters: {
+        type: "object",
+        properties: {
+          calendar: { type: "string", description: "Calendar email (nils.wahlin@snmintegrations.se or samuel.ekeblad@snmintegrations.se)" },
+          start_time: { type: "string", description: "Start time in ISO format" },
+          end_time: { type: "string", description: "End time in ISO format" }
+        },
+        required: ["calendar", "start_time", "end_time"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "book_meeting",
+      description: "Book a meeting in Google Calendar in Europe/Stockholm timezone",
+      parameters: {
+        type: "object",
+        properties: {
+          start: { type: "string", description: "Start time in RFC3339 format with offset (e.g. 2025-09-02T09:00:00+02:00)" },
+          end: { type: "string", description: "End time in RFC3339 format with offset (e.g. 2025-09-02T10:00:00+02:00)" },
+          description: { type: "string", description: "Meeting description/title" }
+        },
+        required: ["start", "end", "description"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "web_search",
+      description: "Search the web for current information, news, or any web-based content",
+      parameters: {
+        type: "object",
+        properties: {
+          input: { type: "string", description: "Search query" }
+        },
+        required: ["input"]
+      }
+    }
   }
 ];
+
+// Helper function to call n8n MCP workflows
+async function callN8nWorkflow(
+  toolName: string,
+  params: Record<string, unknown>
+): Promise<{ success: boolean; result?: unknown; error?: string }> {
+  console.log(`Calling n8n workflow: ${toolName} with params:`, params);
+  
+  try {
+    const response = await fetch(N8N_MCP_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: crypto.randomUUID(),
+        method: "tools/call",
+        params: {
+          name: toolName,
+          arguments: params
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`n8n workflow error: ${response.status}`, errorText);
+      throw new Error(`n8n workflow failed: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log(`n8n workflow result:`, result);
+    
+    if (result.error) {
+      throw new Error(result.error.message || "n8n workflow error");
+    }
+    
+    return { success: true, result: result.result };
+  } catch (error) {
+    console.error(`n8n workflow error:`, error);
+    return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}
 
 // Execute tool calls - using any type to avoid Supabase type inference issues in edge functions
 async function executeTool(
@@ -326,6 +453,46 @@ async function executeTool(
         return { success: true, result: data };
       }
       
+      // n8n workflow tools
+      case "send_email": {
+        return await callN8nWorkflow("Gmail", {
+          To: args.to as string,
+          Subject: args.subject as string,
+          Message: args.message as string,
+        });
+      }
+      
+      case "get_google_calendar_events": {
+        return await callN8nWorkflow("Get_many_events_in_Google_Calendar", {
+          Calendar: args.calendar as string,
+          After: args.after as string,
+          Before: args.before as string,
+          Return_All: args.return_all ?? false,
+        });
+      }
+      
+      case "check_availability": {
+        return await callN8nWorkflow("Availability", {
+          Calendar: args.calendar as string,
+          Start_Time: args.start_time as string,
+          End_Time: args.end_time as string,
+        });
+      }
+      
+      case "book_meeting": {
+        return await callN8nWorkflow("Book_Meeting", {
+          Start: args.start as string,
+          End: args.end as string,
+          Description: args.description as string,
+        });
+      }
+      
+      case "web_search": {
+        return await callN8nWorkflow("search", {
+          input: args.input as string,
+        });
+      }
+      
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -335,7 +502,7 @@ async function executeTool(
   }
 }
 
-const systemPrompt = `You are a personal AI assistant - a "Second Brain" that helps the user manage their knowledge, tasks, calendar, and relationships. Be concise, helpful, and remember context from the conversation.
+const systemPrompt = `You are a personal AI assistant - a "Second Brain" that helps the user manage their knowledge, tasks, calendar, relationships, and communications. Be concise, helpful, and remember context from the conversation.
 
 You have access to tools to actually perform actions. When the user asks you to:
 - Add/create a task → use create_task
@@ -348,10 +515,18 @@ You have access to tools to actually perform actions. When the user asks you to:
 - Add/create a company → use create_company
 - Add/create a deal → use create_deal
 
+EXTERNAL INTEGRATIONS (via n8n):
+- Send an email → use send_email (requires: to, subject, message)
+- Get Google Calendar events → use get_google_calendar_events (calendars: nils.wahlin@snmintegrations.se, samuel.ekeblad@snmintegrations.se)
+- Check someone's availability → use check_availability
+- Book a meeting in Google Calendar → use book_meeting (use RFC3339 format with timezone offset, e.g. 2025-12-09T09:00:00+01:00)
+- Search the web for current info → use web_search
+
 IMPORTANT: 
-- Always use the appropriate tool when the user asks you to create, add, or show something.
+- Always use the appropriate tool when the user asks you to create, add, show, send, search, or book something.
 - After using a tool successfully, confirm what was done briefly.
 - For dates, use ISO format (YYYY-MM-DD for dates, full ISO for datetimes).
+- For Google Calendar bookings, use RFC3339 with Europe/Stockholm timezone offset (+01:00 in winter, +02:00 in summer).
 - Be direct and actionable. Avoid unnecessary pleasantries.`;
 
 serve(async (req) => {
