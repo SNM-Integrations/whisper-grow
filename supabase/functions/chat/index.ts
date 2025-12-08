@@ -115,6 +115,7 @@ const tools = [
           phone: { type: "string", description: "Contact phone" },
           company: { type: "string", description: "Company name" },
           role: { type: "string", description: "Contact's role/title" },
+          relationship: { type: "string", enum: ["friend", "colleague", "partner", "network"], description: "Relationship type with the contact" },
           notes: { type: "string", description: "Notes about the contact" }
         },
         required: ["name"]
@@ -269,6 +270,7 @@ async function executeTool(
       }
       
       case "create_contact": {
+        const relationship = args.relationship as string || "network";
         const { data, error } = await supabaseClient
           .from("contacts")
           .insert({
@@ -279,6 +281,7 @@ async function executeTool(
             company: args.company as string || null,
             role: args.role as string || null,
             notes: args.notes as string || null,
+            tags: [relationship],
           })
           .select()
           .single();
