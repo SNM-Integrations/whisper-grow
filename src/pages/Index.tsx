@@ -320,6 +320,24 @@ const Index = () => {
           
           {activeTab === "chat" && (
             <div className="ml-auto flex items-center gap-2">
+              {conversationId && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={async () => {
+                    if (confirm("Delete this conversation?")) {
+                      await deleteConversation(conversationId);
+                      startNewConversation();
+                      loadConversations();
+                      toast.success("Conversation deleted");
+                    }
+                  }} 
+                  className="gap-2 text-muted-foreground hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Chat
+                </Button>
+              )}
               <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
                 <LogOut className="h-4 w-4" />
                 Sign Out
