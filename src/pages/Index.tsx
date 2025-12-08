@@ -38,6 +38,7 @@ import { CompaniesList } from "@/components/crm/CompaniesList";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { OrganizationSwitcher } from "@/components/organization/OrganizationSwitcher";
 
 interface Message {
   id: string;
@@ -294,6 +295,8 @@ const Index = () => {
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header */}
         <header className="h-14 border-b border-border flex items-center px-4 gap-4">
+          <OrganizationSwitcher />
+          <div className="w-px h-6 bg-border" />
           <h1 className="font-semibold capitalize">{activeTab === "crm" ? "CRM" : activeTab}</h1>
           
           {/* Chat toggle button when not on chat tab */}
