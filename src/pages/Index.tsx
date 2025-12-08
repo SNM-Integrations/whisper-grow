@@ -39,6 +39,7 @@ import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { OrganizationSwitcher } from "@/components/organization/OrganizationSwitcher";
+import { PendingInvitations } from "@/components/organization/PendingInvitations";
 
 interface Message {
   id: string;
@@ -377,6 +378,9 @@ const Index = () => {
                 <div className="flex-1 flex flex-col">
                   <ScrollArea className="flex-1 p-4">
                     <div className="max-w-3xl mx-auto space-y-6">
+                      {/* Pending Invitations Banner */}
+                      <PendingInvitations />
+                      
                       {messages.length === 0 && (
                         <div className="text-center py-20">
                           <h2 className="text-2xl font-bold mb-2">Welcome to your Second Brain</h2>
