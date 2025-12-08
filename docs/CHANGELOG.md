@@ -4,6 +4,75 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.5.0] - 2025-01-08
+
+### Cloud Migration: Lovable Cloud Integration (Lovable)
+
+**What happened:** Migrated the frontend from localhost Python backend to Lovable Cloud (Supabase) for full cloud deployment.
+
+### Added
+
+#### Database Tables (via Supabase migration)
+- `contacts` - CRM contacts with RLS policies
+- `companies` - CRM companies with RLS policies  
+- `deals` - CRM deals with stage tracking and RLS
+- `conversations` - Chat conversation storage
+- `messages` - Chat message history
+
+#### Edge Function
+- `supabase/functions/chat/index.ts` - AI chat using Lovable AI gateway
+  - Streaming responses via SSE
+  - Uses `google/gemini-2.5-flash` model
+  - Authenticated via JWT
+
+#### New Files
+- `src/lib/supabase-api.ts` - Cloud API layer replacing localhost calls
+  - Notes CRUD (uses existing `notes` table)
+  - Contacts, Companies, Deals CRUD
+  - Conversations and Messages CRUD
+  - `streamChat()` - Streaming AI chat function
+
+- `src/components/auth/AuthForm.tsx` - Login/signup form
+- `src/hooks/useAuth.ts` - Auth state management hook
+
+#### Updated Files
+- `src/pages/Index.tsx` - Now uses cloud API with streaming chat
+- `src/integrations/supabase/client.ts` - Added fallback credentials
+- `supabase/config.toml` - Added chat function config
+
+### For Claude Code: What You Need to Do
+
+The frontend is now fully cloud-based. The Python backend (`backend/`) is NO LONGER NEEDED for the cloud version.
+
+**Remaining tasks for Claude Code:**
+
+1. **Update NotesPanel to use cloud API:**
+   - Change import from `@/lib/api` to `@/lib/supabase-api`
+   - The `notes` table already exists in Supabase
+
+2. **Update SearchPanel to use cloud API:**
+   - Currently calls localhost for semantic search
+   - Either implement an edge function for search OR
+   - Use Supabase full-text search on notes
+
+3. **Wire CRM components to real data:**
+   - `ContactsList.tsx` - Uses mock data, needs to use `fetchContacts()`
+   - `DealsPipeline.tsx` - Uses mock data, needs to use `fetchDeals()`
+   - `CompaniesList.tsx` - Uses mock data, needs to use `fetchCompanies()`
+
+4. **Optional cleanup:**
+   - Remove `backend/` folder (no longer needed for cloud)
+   - Remove `src/lib/api.ts` (replaced by `supabase-api.ts`)
+
+### Important Notes
+
+- Authentication is now required - users must sign up/sign in
+- Auto-confirm email is enabled (no email verification needed)
+- The chat uses Lovable AI (no API keys required from user)
+- All data is stored in Supabase with proper RLS policies
+
+---
+
 ## [0.4.0] - 2024-12-06
 
 ### Backend: File Tools Implementation (Claude Code)
