@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +21,11 @@ import {
   Trash2,
 } from "lucide-react";
 import { CompanyDialog } from "./CompanyDialog";
+import {
+  fetchCompanies,
+  deleteCompany,
+  type Company as SupabaseCompany,
+} from "@/lib/supabase-api";
 
 export interface Company {
   id: string;
@@ -34,86 +39,48 @@ export interface Company {
   status: "active" | "prospect" | "inactive";
 }
 
-const mockCompanies: Company[] = [
-  {
-    id: "1",
-    name: "Acme Corp",
-    industry: "Technology",
-    website: "acme.com",
-    employees: "500-1000",
-    revenue: "$50M-$100M",
-    contacts: 5,
-    deals: 2,
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "TechStart",
-    industry: "SaaS",
-    website: "techstart.io",
-    employees: "50-100",
-    revenue: "$5M-$10M",
-    contacts: 3,
-    deals: 1,
-    status: "prospect",
-  },
-  {
-    id: "3",
-    name: "Global Inc",
-    industry: "Manufacturing",
-    website: "globalinc.com",
-    employees: "1000-5000",
-    revenue: "$100M-$500M",
-    contacts: 8,
-    deals: 3,
-    status: "active",
-  },
-  {
-    id: "4",
-    name: "Startup Co",
-    industry: "Fintech",
-    website: "startup.co",
-    employees: "10-50",
-    revenue: "$1M-$5M",
-    contacts: 2,
-    deals: 1,
-    status: "prospect",
-  },
-  {
-    id: "5",
-    name: "Enterprise Ltd",
-    industry: "Consulting",
-    website: "enterprise.com",
-    employees: "100-500",
-    revenue: "$10M-$50M",
-    contacts: 4,
-    deals: 0,
-    status: "inactive",
-  },
-  {
-    id: "6",
-    name: "Tech Solutions",
-    industry: "IT Services",
-    website: "techsolutions.io",
-    employees: "200-500",
-    revenue: "$20M-$50M",
-    contacts: 6,
-    deals: 2,
-    status: "active",
-  },
-];
-
 const statusColors: Record<Company["status"], string> = {
   active: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   prospect: "bg-amber-500/10 text-amber-500 border-amber-500/20",
   inactive: "bg-muted text-muted-foreground border-border",
 };
 
+function mapCompany(c: SupabaseCompany): Company {
+  // Determine status based on notes or other indicators
+  let status: Company["status"] = "prospect";
+  if (c.notes?.toLowerCase().includes("active")) status = "active";
+  else if (c.notes?.toLowerCase().includes("inactive")) status = "inactive";
+
+  return {
+    id: c.id,
+    name: c.name,
+    industry: c.industry || "",
+    website: c.website || "",
+    employees: c.employees ? `${c.employees}` : "Unknown",
+    revenue: c.revenue || "Unknown",
+    contacts: 0, // Would need a join to count
+    deals: 0, // Would need a join to count
+    status,
+  };
+}
+
 export function CompaniesList() {
   const [search, setSearch] = useState("");
-  const [companies] = useState<Company[]>(mockCompanies);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingCompany, setEditingCompany] = useState<Company | null>(null);
+
+  const loadCompanies = async () => {
+    setIsLoading(true);
+    const data = await fetchCompanies();
+    setCompanies(data.map(mapCompany));
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadCompanies();
+  }, []);
 
   const filteredCompanies = companies.filter(
     (company) =>
@@ -130,6 +97,27 @@ export function CompaniesList() {
     setEditingCompany(null);
     setDialogOpen(true);
   };
+
+  const handleDelete = async (id: string) => {
+    if (await deleteCompany(id)) {
+      setCompanies((prev) => prev.filter((c) => c.id !== id));
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      loadCompanies();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Loading companies...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -149,93 +137,104 @@ export function CompaniesList() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredCompanies.map((company) => (
-          <Card
-            key={company.id}
-            className="hover:shadow-md transition-shadow bg-card border-border"
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-5 w-5 text-primary" />
+      {filteredCompanies.length === 0 ? (
+        <div className="p-8 text-center text-muted-foreground">
+          {search ? "No companies found" : "No companies yet. Add one!"}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {filteredCompanies.map((company) => (
+            <Card
+              key={company.id}
+              className="hover:shadow-md transition-shadow bg-card border-border"
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <Building2 className="h-5 w-5 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="font-medium text-foreground">{company.name}</h3>
+                      <p className="text-sm text-muted-foreground">{company.industry}</p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-medium text-foreground">{company.name}</h3>
-                    <p className="text-sm text-muted-foreground">{company.industry}</p>
-                  </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="bg-popover border-border">
-                    <DropdownMenuItem
-                      className="gap-2 cursor-pointer"
-                      onClick={() => handleEdit(company)}
-                    >
-                      <Edit className="h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="gap-2 cursor-pointer text-destructive focus:text-destructive">
-                      <Trash2 className="h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Globe className="h-4 w-4" />
-                  <a
-                    href={`https://${company.website}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-primary transition-colors"
-                  >
-                    {company.website}
-                  </a>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-popover border-border">
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer"
+                        onClick={() => handleEdit(company)}
+                      >
+                        <Edit className="h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="gap-2 cursor-pointer text-destructive focus:text-destructive"
+                        onClick={() => handleDelete(company.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
 
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <Users className="h-4 w-4" />
-                    {company.employees}
-                  </div>
-                  <div className="flex items-center gap-1.5 text-muted-foreground">
-                    <DollarSign className="h-4 w-4" />
-                    {company.revenue}
-                  </div>
-                </div>
+                <div className="space-y-3">
+                  {company.website && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Globe className="h-4 w-4" />
+                      <a
+                        href={`https://${company.website}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary transition-colors"
+                      >
+                        {company.website}
+                      </a>
+                    </div>
+                  )}
 
-                <div className="flex items-center justify-between pt-3 border-t border-border">
-                  <div className="flex items-center gap-3 text-sm">
-                    <span className="text-muted-foreground">
-                      <span className="font-medium text-foreground">{company.contacts}</span>{" "}
-                      contacts
-                    </span>
-                    <span className="text-muted-foreground">
-                      <span className="font-medium text-foreground">{company.deals}</span>{" "}
-                      deals
-                    </span>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <Users className="h-4 w-4" />
+                      {company.employees}
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground">
+                      <DollarSign className="h-4 w-4" />
+                      {company.revenue}
+                    </div>
                   </div>
-                  <Badge variant="outline" className={statusColors[company.status]}>
-                    {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
-                  </Badge>
+
+                  <div className="flex items-center justify-between pt-3 border-t border-border">
+                    <div className="flex items-center gap-3 text-sm">
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{company.contacts}</span>{" "}
+                        contacts
+                      </span>
+                      <span className="text-muted-foreground">
+                        <span className="font-medium text-foreground">{company.deals}</span>{" "}
+                        deals
+                      </span>
+                    </div>
+                    <Badge variant="outline" className={statusColors[company.status]}>
+                      {company.status.charAt(0).toUpperCase() + company.status.slice(1)}
+                    </Badge>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <CompanyDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogClose}
         company={editingCompany}
       />
     </div>

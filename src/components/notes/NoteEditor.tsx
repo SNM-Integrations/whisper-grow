@@ -1,9 +1,8 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ArrowLeft, Save } from "lucide-react";
-import { createNote, updateNote, type Note } from "@/lib/api";
+import { createNote, updateNote, type Note } from "@/lib/supabase-api";
 
 interface NoteEditorProps {
   note: Note | null;
@@ -12,18 +11,17 @@ interface NoteEditorProps {
 }
 
 const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
-  const [title, setTitle] = useState(note?.title || "");
   const [content, setContent] = useState(note?.content || "");
   const [isSaving, setIsSaving] = useState(false);
 
   const handleSave = async () => {
     if (!content.trim()) return;
-    
+
     setIsSaving(true);
     const result = note
-      ? await updateNote(note.id, title || "Untitled", content)
-      : await createNote(title || "Untitled", content);
-    
+      ? await updateNote(note.id, content)
+      : await createNote(content);
+
     setIsSaving(false);
     if (result) {
       onSave();
@@ -52,18 +50,12 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ note, onSave, onCancel }) => {
       </div>
 
       {/* Editor */}
-      <div className="flex-1 p-4 space-y-4 overflow-auto">
-        <Input
-          placeholder="Note title..."
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          className="font-medium"
-        />
+      <div className="flex-1 p-4 overflow-auto">
         <Textarea
-          placeholder="Write your note..."
+          placeholder="Write your note... (first line becomes the title)"
           value={content}
           onChange={(e) => setContent(e.target.value)}
-          className="flex-1 min-h-[200px] resize-none"
+          className="flex-1 min-h-[300px] resize-none"
         />
       </div>
     </div>

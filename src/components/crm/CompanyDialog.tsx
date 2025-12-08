@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Company } from "./CompaniesList";
+import { createCompany, updateCompany } from "@/lib/supabase-api";
 
 interface CompanyDialogProps {
   open: boolean;
@@ -41,6 +42,8 @@ interface CompanyFormData {
 }
 
 export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
   const form = useForm<CompanyFormData>({
     defaultValues: {
       name: "",
@@ -74,8 +77,32 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
     }
   }, [company, form]);
 
-  const onSubmit = (data: CompanyFormData) => {
-    console.log("Company data:", data);
+  const onSubmit = async (data: CompanyFormData) => {
+    setIsSaving(true);
+
+    // Parse employees count if it's a range like "100-500"
+    let employeeCount: number | null = null;
+    if (data.employees) {
+      const match = data.employees.match(/\d+/);
+      if (match) employeeCount = parseInt(match[0], 10);
+    }
+
+    const companyData = {
+      name: data.name,
+      industry: data.industry || null,
+      website: data.website || null,
+      employees: employeeCount,
+      revenue: data.revenue || null,
+      notes: data.status, // Store status in notes field
+    };
+
+    if (company) {
+      await updateCompany(company.id, companyData);
+    } else {
+      await createCompany(companyData);
+    }
+
+    setIsSaving(false);
     onOpenChange(false);
   };
 
@@ -90,6 +117,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
             <FormField
               control={form.control}
               name="name"
+              rules={{ required: "Company name is required" }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Company Name</FormLabel>
@@ -206,7 +234,9 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{company ? "Update" : "Create"}</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Saving..." : company ? "Update" : "Create"}
+              </Button>
             </div>
           </form>
         </Form>

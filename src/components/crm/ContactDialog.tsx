@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Contact } from "./ContactsList";
+import { createContact, updateContact } from "@/lib/supabase-api";
 
 interface ContactDialogProps {
   open: boolean;
@@ -40,6 +41,8 @@ interface ContactFormData {
 }
 
 export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
   const form = useForm<ContactFormData>({
     defaultValues: {
       name: "",
@@ -70,8 +73,26 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
     }
   }, [contact, form]);
 
-  const onSubmit = (data: ContactFormData) => {
-    console.log("Contact data:", data);
+  const onSubmit = async (data: ContactFormData) => {
+    setIsSaving(true);
+
+    const contactData = {
+      name: data.name,
+      email: data.email || null,
+      phone: data.phone || null,
+      company: data.company || null,
+      role: null,
+      notes: null,
+      tags: [data.status], // Store status as a tag
+    };
+
+    if (contact) {
+      await updateContact(contact.id, contactData);
+    } else {
+      await createContact(contactData);
+    }
+
+    setIsSaving(false);
     onOpenChange(false);
   };
 
@@ -86,6 +107,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
             <FormField
               control={form.control}
               name="name"
+              rules={{ required: "Name is required" }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Name</FormLabel>
@@ -162,7 +184,9 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{contact ? "Update" : "Create"}</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Saving..." : contact ? "Update" : "Create"}
+              </Button>
             </div>
           </form>
         </Form>

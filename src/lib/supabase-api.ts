@@ -64,6 +64,13 @@ export interface Deal {
   updated_at: string;
 }
 
+export interface SearchResult {
+  id: string;
+  content: string;
+  score: number;
+  type: "note" | "conversation";
+}
+
 // ============ NOTES ============
 export async function fetchNotes(): Promise<Note[]> {
   const { data, error } = await supabase
@@ -117,6 +124,57 @@ export async function deleteNote(id: string): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+export async function searchNotes(query: string): Promise<Note[]> {
+  const { data, error } = await supabase
+    .from("notes")
+    .select("id, content, formatted_content, category_id, created_at, updated_at")
+    .ilike("content", `%${query}%`)
+    .order("updated_at", { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error("Error searching notes:", error);
+    return [];
+  }
+  return data || [];
+}
+
+// ============ SEARCH (combined) ============
+export async function searchMemory(query: string): Promise<SearchResult[]> {
+  const results: SearchResult[] = [];
+
+  // Search notes
+  const notes = await searchNotes(query);
+  for (const note of notes) {
+    results.push({
+      id: note.id,
+      content: note.content.slice(0, 200),
+      score: 0.8, // Placeholder score for text search
+      type: "note",
+    });
+  }
+
+  // Search messages in conversations
+  const { data: messages } = await supabase
+    .from("messages")
+    .select("id, conversation_id, content")
+    .ilike("content", `%${query}%`)
+    .limit(10);
+
+  if (messages) {
+    for (const msg of messages) {
+      results.push({
+        id: msg.conversation_id,
+        content: msg.content.slice(0, 200),
+        score: 0.7,
+        type: "conversation",
+      });
+    }
+  }
+
+  return results;
 }
 
 // ============ CONVERSATIONS ============

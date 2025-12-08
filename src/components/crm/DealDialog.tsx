@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Dialog,
@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Deal } from "./DealsPipeline";
+import { createDeal, updateDeal } from "@/lib/supabase-api";
 
 interface DealDialogProps {
   open: boolean;
@@ -33,24 +34,20 @@ interface DealDialogProps {
 
 interface DealFormData {
   title: string;
-  company: string;
   value: number;
   stage: Deal["stage"];
-  probability: number;
   closeDate: string;
-  contact: string;
 }
 
 export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
+  const [isSaving, setIsSaving] = useState(false);
+
   const form = useForm<DealFormData>({
     defaultValues: {
       title: "",
-      company: "",
       value: 0,
       stage: "lead",
-      probability: 20,
       closeDate: "",
-      contact: "",
     },
   });
 
@@ -58,28 +55,44 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
     if (deal) {
       form.reset({
         title: deal.title,
-        company: deal.company,
         value: deal.value,
         stage: deal.stage,
-        probability: deal.probability,
         closeDate: deal.closeDate,
-        contact: deal.contact,
       });
     } else {
       form.reset({
         title: "",
-        company: "",
         value: 0,
         stage: "lead",
-        probability: 20,
         closeDate: "",
-        contact: "",
       });
     }
   }, [deal, form]);
 
-  const onSubmit = (data: DealFormData) => {
-    console.log("Deal data:", data);
+  const onSubmit = async (data: DealFormData) => {
+    setIsSaving(true);
+
+    // Map UI stage to Supabase stage
+    let supabaseStage = data.stage;
+    if (data.stage === "closed") supabaseStage = "won" as any;
+
+    const dealData = {
+      title: data.title,
+      value: data.value,
+      stage: supabaseStage,
+      contact_id: null,
+      company_id: null,
+      expected_close_date: data.closeDate || null,
+      notes: null,
+    };
+
+    if (deal) {
+      await updateDeal(deal.id, dealData);
+    } else {
+      await createDeal(dealData);
+    }
+
+    setIsSaving(false);
     onOpenChange(false);
   };
 
@@ -94,6 +107,7 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
             <FormField
               control={form.control}
               name="title"
+              rules={{ required: "Title is required" }}
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Deal Title</FormLabel>
@@ -106,57 +120,22 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
             />
             <FormField
               control={form.control}
-              name="company"
+              name="value"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Company</FormLabel>
+                  <FormLabel>Value ($)</FormLabel>
                   <FormControl>
-                    <Input placeholder="Acme Corp" {...field} />
+                    <Input
+                      type="number"
+                      placeholder="50000"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            <div className="grid grid-cols-2 gap-4">
-              <FormField
-                control={form.control}
-                name="value"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Value ($)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        placeholder="50000"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="probability"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Probability (%)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="100"
-                        placeholder="50"
-                        {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
             <FormField
               control={form.control}
               name="stage"
@@ -183,25 +162,12 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
             />
             <FormField
               control={form.control}
-              name="contact"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Contact Person</FormLabel>
-                  <FormControl>
-                    <Input placeholder="John Doe" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
               name="closeDate"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Expected Close Date</FormLabel>
                   <FormControl>
-                    <Input placeholder="Dec 15" {...field} />
+                    <Input type="date" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -211,7 +177,9 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{deal ? "Update" : "Create"}</Button>
+              <Button type="submit" disabled={isSaving}>
+                {isSaving ? "Saving..." : deal ? "Update" : "Create"}
+              </Button>
             </div>
           </form>
         </Form>

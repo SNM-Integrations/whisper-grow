@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Plus, FileText, Search, ArrowLeft, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { fetchNotes, deleteNote, type Note } from "@/lib/api";
+import { fetchNotes, deleteNote, type Note } from "@/lib/supabase-api";
 import NoteEditor from "./NoteEditor";
 
 interface NotesPanelProps {
@@ -30,10 +30,8 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ onClose }) => {
   };
 
   const handleSearch = async () => {
-    setIsLoading(true);
-    const data = await fetchNotes(search);
-    setNotes(data);
-    setIsLoading(false);
+    // Search is now done client-side via filteredNotes
+    // Could add server-side search later with Supabase full-text search
   };
 
   const handleDelete = async (id: string, e: React.MouseEvent) => {
@@ -52,10 +50,15 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ onClose }) => {
     setIsCreating(false);
   };
 
+  // Extract title from first line of content or use placeholder
+  const getTitle = (note: Note) => {
+    const firstLine = note.content.split('\n')[0].trim();
+    return firstLine.length > 50 ? firstLine.slice(0, 50) + '...' : firstLine || 'Untitled';
+  };
+
   const filteredNotes = search
     ? notes.filter(
         (n) =>
-          n.title.toLowerCase().includes(search.toLowerCase()) ||
           n.content.toLowerCase().includes(search.toLowerCase())
       )
     : notes;
@@ -125,7 +128,7 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ onClose }) => {
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                       <span className="truncate text-sm font-medium">
-                        {note.title || "Untitled"}
+                        {getTitle(note)}
                       </span>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1 line-clamp-2">

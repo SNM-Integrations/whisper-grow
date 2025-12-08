@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,6 +11,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { DealDialog } from "./DealDialog";
+import {
+  fetchDeals,
+  deleteDeal,
+  type Deal as SupabaseDeal,
+} from "@/lib/supabase-api";
 
 export interface Deal {
   id: string;
@@ -23,69 +28,6 @@ export interface Deal {
   contact: string;
 }
 
-const mockDeals: Deal[] = [
-  {
-    id: "1",
-    title: "Enterprise License",
-    company: "Acme Corp",
-    value: 50000,
-    stage: "negotiation",
-    probability: 80,
-    closeDate: "Dec 15",
-    contact: "Sarah Johnson",
-  },
-  {
-    id: "2",
-    title: "Annual Subscription",
-    company: "TechStart",
-    value: 12000,
-    stage: "proposal",
-    probability: 60,
-    closeDate: "Dec 20",
-    contact: "Michael Chen",
-  },
-  {
-    id: "3",
-    title: "Pilot Program",
-    company: "Global Inc",
-    value: 5000,
-    stage: "qualified",
-    probability: 40,
-    closeDate: "Jan 5",
-    contact: "Emily Davis",
-  },
-  {
-    id: "4",
-    title: "Team License",
-    company: "Startup Co",
-    value: 8000,
-    stage: "lead",
-    probability: 20,
-    closeDate: "Jan 10",
-    contact: "James Wilson",
-  },
-  {
-    id: "5",
-    title: "Premium Package",
-    company: "Enterprise Ltd",
-    value: 75000,
-    stage: "closed",
-    probability: 100,
-    closeDate: "Nov 30",
-    contact: "Lisa Anderson",
-  },
-  {
-    id: "6",
-    title: "Consulting Deal",
-    company: "Tech Solutions",
-    value: 25000,
-    stage: "proposal",
-    probability: 50,
-    closeDate: "Dec 28",
-    contact: "David Brown",
-  },
-];
-
 const stages = [
   { id: "lead", label: "Lead", color: "bg-muted" },
   { id: "qualified", label: "Qualified", color: "bg-blue-500/10" },
@@ -94,10 +36,55 @@ const stages = [
   { id: "closed", label: "Closed Won", color: "bg-emerald-500/10" },
 ] as const;
 
+// Map stage probability
+const stageProbability: Record<string, number> = {
+  lead: 20,
+  qualified: 40,
+  proposal: 60,
+  negotiation: 80,
+  closed: 100,
+};
+
+function mapDeal(d: SupabaseDeal): Deal {
+  // Map Supabase stage to UI stage
+  let stage: Deal["stage"] = "lead";
+  const s = d.stage?.toLowerCase();
+  if (s === "won" || s === "closed") stage = "closed";
+  else if (s === "negotiation") stage = "negotiation";
+  else if (s === "proposal") stage = "proposal";
+  else if (s === "qualified") stage = "qualified";
+  else stage = "lead";
+
+  return {
+    id: d.id,
+    title: d.title,
+    company: "", // Would need a join to get company name
+    value: d.value || 0,
+    stage,
+    probability: stageProbability[stage] || 20,
+    closeDate: d.expected_close_date
+      ? new Date(d.expected_close_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+      : "",
+    contact: "", // Would need a join to get contact name
+  };
+}
+
 export function DealsPipeline() {
-  const [deals] = useState<Deal[]>(mockDeals);
+  const [deals, setDeals] = useState<Deal[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingDeal, setEditingDeal] = useState<Deal | null>(null);
+
+  const loadDeals = async () => {
+    setIsLoading(true);
+    const data = await fetchDeals();
+    setDeals(data.map(mapDeal));
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadDeals();
+  }, []);
 
   const getDealsByStage = (stage: Deal["stage"]) =>
     deals.filter((deal) => deal.stage === stage);
@@ -121,6 +108,27 @@ export function DealsPipeline() {
     setEditingDeal(null);
     setDialogOpen(true);
   };
+
+  const handleDelete = async (id: string) => {
+    if (await deleteDeal(id)) {
+      setDeals((prev) => prev.filter((d) => d.id !== id));
+    }
+  };
+
+  const handleDialogClose = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      loadDeals();
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8 text-center text-muted-foreground">
+        Loading deals...
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -182,7 +190,10 @@ export function DealsPipeline() {
                           >
                             Edit Deal
                           </DropdownMenuItem>
-                          <DropdownMenuItem className="cursor-pointer text-destructive focus:text-destructive">
+                          <DropdownMenuItem
+                            className="cursor-pointer text-destructive focus:text-destructive"
+                            onClick={() => handleDelete(deal.id)}
+                          >
                             Delete
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -190,7 +201,9 @@ export function DealsPipeline() {
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-3">
-                    <p className="text-sm text-muted-foreground">{deal.company}</p>
+                    {deal.company && (
+                      <p className="text-sm text-muted-foreground">{deal.company}</p>
+                    )}
 
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-1 text-foreground font-medium">
@@ -205,25 +218,31 @@ export function DealsPipeline() {
                       </Badge>
                     </div>
 
-                    <div className="flex items-center justify-between pt-2 border-t border-border">
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarFallback className="text-[10px] bg-muted">
-                            {deal.contact
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                          {deal.contact}
-                        </span>
+                    {(deal.contact || deal.closeDate) && (
+                      <div className="flex items-center justify-between pt-2 border-t border-border">
+                        {deal.contact && (
+                          <div className="flex items-center gap-2">
+                            <Avatar className="h-6 w-6">
+                              <AvatarFallback className="text-[10px] bg-muted">
+                                {deal.contact
+                                  .split(" ")
+                                  .map((n) => n[0])
+                                  .join("")}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span className="text-xs text-muted-foreground truncate max-w-[100px]">
+                              {deal.contact}
+                            </span>
+                          </div>
+                        )}
+                        {deal.closeDate && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {deal.closeDate}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {deal.closeDate}
-                      </div>
-                    </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -232,7 +251,7 @@ export function DealsPipeline() {
         ))}
       </div>
 
-      <DealDialog open={dialogOpen} onOpenChange={setDialogOpen} deal={editingDeal} />
+      <DealDialog open={dialogOpen} onOpenChange={handleDialogClose} deal={editingDeal} />
     </div>
   );
 }

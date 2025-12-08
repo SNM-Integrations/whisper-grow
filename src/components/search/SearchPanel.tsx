@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Search, FileText, MessageSquare, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { searchMemory, type SearchResult } from "@/lib/api";
+import { searchMemory, type SearchResult } from "@/lib/supabase-api";
 
 interface SearchPanelProps {
   onSelectNote?: (id: string) => void;
