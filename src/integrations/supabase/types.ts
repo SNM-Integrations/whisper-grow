@@ -790,6 +790,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      create_organization: { Args: { org_name: string }; Returns: string }
       get_user_org_ids: { Args: { _user_id: string }; Returns: string[] }
       is_org_admin: {
         Args: { _org_id: string; _user_id: string }
