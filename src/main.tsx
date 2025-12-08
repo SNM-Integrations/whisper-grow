@@ -3,6 +3,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+// Force env reload - build timestamp: 2025-12-08
+
 if (import.meta.env.DEV) {
   const hook = (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
   console.log('[Diagnostics] React version:', React.version);
