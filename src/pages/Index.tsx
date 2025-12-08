@@ -355,22 +355,16 @@ const Index = () => {
                       {conversations.map((conv) => (
                         <div
                           key={conv.id}
+                          onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group flex items-center gap-2",
+                            "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group flex items-center gap-2 cursor-pointer",
                             conversationId === conv.id && "bg-accent"
                           )}
                         >
+                          <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="truncate text-sm flex-1">{conv.title}</span>
                           <button
-                            onClick={() => loadConversation(conv.id)}
-                            className="flex-1 flex items-center gap-2 min-w-0"
-                          >
-                            <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
-                            <span className="truncate text-sm">{conv.title}</span>
-                          </button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center justify-center rounded hover:bg-destructive/20"
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (confirm("Delete this conversation?")) {
@@ -383,8 +377,8 @@ const Index = () => {
                               }
                             }}
                           >
-                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
-                          </Button>
+                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                          </button>
                         </div>
                       ))}
                       {conversations.length === 0 && (
