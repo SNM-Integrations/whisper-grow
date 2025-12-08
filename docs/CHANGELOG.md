@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.7.0] - 2025-12-08
+
+### Organization Polish & Resource Sharing (Lovable)
+
+**What happened:** Enhanced the organization system with invitation acceptance flow, task visibility sharing, and AI tool improvements.
+
+### Added
+
+#### Invitation Acceptance Flow
+- `src/components/organization/PendingInvitations.tsx` - UI for accepting/declining org invitations
+- Users see pending invitations on the main page after login
+- Accept adds user to org, decline removes invitation
+- RLS policies for:
+  - Users can view invitations for their email
+  - Users can decline invitations for their email  
+  - Users can accept invitations and join organizations
+
+#### Task Visibility & Sharing
+- Tasks now support `visibility` and `organization_id` fields
+- Added `VisibilitySelector` to task creation/edit dialog
+- Tasks with `visibility = 'organization'` show "Shared" badge
+- Shared tasks visible to all organization members via RLS
+
+#### AI Chat Tool Improvements
+- Added `relationship` parameter to `create_contact` tool
+- Relationship types: friend, colleague, partner, network
+- AI can now correctly set relationship type when creating contacts via chat
+
+### Updated Files
+- `src/components/tasks/TasksPanel.tsx` - Added visibility selector and shared badge
+- `src/lib/supabase-api.ts` - Updated Task type with visibility fields
+- `supabase/functions/chat/index.ts` - Added relationship to create_contact tool
+- `src/pages/Index.tsx` - Added PendingInvitations component
+
+### For Claude Code: What's New
+
+1. **Invitation Flow Complete:**
+   - Users can now accept invitations through the UI
+   - No email sending (would need Resend API key)
+   - Invitation appears on main page if pending
+
+2. **Task Sharing Works:**
+   - When in org context, tasks can be shared with org
+   - RLS enforces org-level visibility automatically
+
+3. **AI Contact Creation Fixed:**
+   - AI chat can now use "partner" relationship type
+   - Previously was missing from tool definition
+
+---
+
 ## [0.6.0] - 2025-12-08
 
 ### Organization System: Multi-Tenancy Support (Lovable)
@@ -33,22 +84,11 @@ All notable changes to this project will be documented in this file.
 
 #### New Components
 - `src/hooks/useOrganization.ts` - Organization state management
-  - Create/switch organizations
-  - Invite/remove members
-  - Update roles
-  - Context persistence (localStorage)
-  
 - `src/components/organization/OrganizationSwitcher.tsx` - UI to toggle between Personal and Organization modes
 - `src/components/organization/OrganizationSettings.tsx` - Admin panel for member management
 - `src/components/organization/VisibilitySelector.tsx` - Resource visibility picker
 
-#### Updated Files
-- `src/pages/Index.tsx` - Added OrganizationSwitcher to header
-- `src/pages/Settings.tsx` - Added Organization tab with admin settings
-
-### For Claude Code: What You Need to Know
-
-The organization system is now fully implemented:
+### For Claude Code: Organization System Complete
 
 1. **Visibility Logic:**
    - Resources with `visibility = 'personal'` are only visible to owner
@@ -58,17 +98,16 @@ The organization system is now fully implemented:
 2. **Context Switching:**
    - Users can switch between Personal and Organization modes
    - Context is stored in localStorage for persistence
-   - When in org mode, new resources can be shared with the org
 
 3. **Role Hierarchy:**
    - Owner: Full control, can't be removed
-   - Admin: Manage members, invite users, update roles
+   - Admin: Manage members, invite users
    - Member: View/create org-shared resources
 
 4. **Invitation Flow:**
-   - Admins can invite by email
+   - Admins invite by email
+   - Users accept/decline via UI
    - Invitations expire after 7 days
-   - (Note: Acceptance flow not yet implemented)
 
 ---
 

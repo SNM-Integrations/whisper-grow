@@ -5,9 +5,9 @@
 ## Vision
 
 Build a "second brain" that works as your personal AI assistant:
-- **Windows app** (primary) - runs locally with Gemma LLM
-- **Web/mobile app** (secondary) - cloud-hosted for anywhere access
-- **Same memory, same identity** - both surfaces share your data
+- **Web app** (primary) - cloud-hosted on Lovable Cloud
+- **Multi-user support** - Personal and organizational contexts
+- **AI with tool access** - Can create tasks, notes, calendar events, CRM entries
 
 ## Core Principle
 
@@ -20,31 +20,33 @@ You open it, you're in a chat. The AI has three jobs:
 
 ---
 
-## Architecture
+## Architecture (Cloud-First)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  FRONTEND (Lovable)                                     │
-│  - React + TypeScript + Tailwind + shadcn/ui            │
-│  - Conversation-first UI (chat is primary)              │
-│  - Calls backend API, never LLM directly                │
+│  FRONTEND (React + Vite + TypeScript)                   │
+│  - Chat-first UI with sidebar navigation                │
+│  - CRM (Contacts, Deals, Companies)                     │
+│  - Calendar (Day/Week/Month views)                      │
+│  - Tasks, Notes, Search                                 │
+│  - Organization switching & role-based access           │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│  BACKEND / BRAIN SERVICE (Claude Code)                  │
-│  - Python + FastAPI                                     │
-│  - Orchestrates LLM calls (Gemma local / cloud fallback)│
-│  - Tool execution (files, tasks, calendar, etc.)        │
-│  - Memory management (SQLite + vector store)            │
-│  - Identity & preferences                               │
+│  LOVABLE CLOUD (Supabase)                               │
+│  - PostgreSQL with RLS (Row Level Security)             │
+│  - Edge Functions for AI chat with tool calling         │
+│  - Authentication (email with auto-confirm)             │
+│  - Organization/workspace multi-tenancy                 │
 └─────────────────────────────────────────────────────────┘
                           │
                           ▼
 ┌─────────────────────────────────────────────────────────┐
-│  INTELLIGENCE LAYER                                     │
-│  - Local: Gemma 3 4B via Ollama                        │
-│  - Cloud: Higher-end model (fallback/heavy tasks)       │
+│  AI LAYER (Lovable AI Gateway)                          │
+│  - google/gemini-2.5-flash (default model)              │
+│  - Tool calling for CRUD operations                     │
+│  - No API key required (managed by Lovable)             │
 └─────────────────────────────────────────────────────────┘
 ```
 
