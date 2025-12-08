@@ -364,7 +364,7 @@ const Index = () => {
                           <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
                           <span className="truncate text-sm flex-1">{conv.title}</span>
                           <button
-                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 flex items-center justify-center rounded hover:bg-destructive/20"
+                            className="h-6 w-6 shrink-0 flex items-center justify-center rounded hover:bg-destructive/20 text-muted-foreground hover:text-destructive"
                             onClick={async (e) => {
                               e.stopPropagation();
                               if (confirm("Delete this conversation?")) {
@@ -377,7 +377,7 @@ const Index = () => {
                               }
                             }}
                           >
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive" />
+                            <Trash2 className="h-4 w-4" />
                           </button>
                         </div>
                       ))}
