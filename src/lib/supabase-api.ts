@@ -506,9 +506,10 @@ export async function streamChat({
   onDelta: (deltaText: string) => void;
   onDone: () => void;
 }) {
-  const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+  // Use fallback URL since env var may not be available in deployed builds
+  const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://pccvvqmrwbcdjgkyteqn.supabase.co';
+  const CHAT_URL = `${SUPABASE_URL}/functions/v1/chat`;
   console.log("Chat URL:", CHAT_URL);
-  console.log("VITE_SUPABASE_URL:", import.meta.env.VITE_SUPABASE_URL);
   
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) {
