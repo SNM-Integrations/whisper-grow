@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Calendar } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchTasks,
@@ -31,8 +31,11 @@ import {
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { VisibilitySelector } from "@/components/organization/VisibilitySelector";
+import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganization";
 
 export function TasksPanel() {
+  const { currentOrg, context } = useOrganization();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -44,6 +47,8 @@ export function TasksPanel() {
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dueDate, setDueDate] = useState("");
+  const [visibility, setVisibility] = useState<ResourceVisibility>("personal");
+  const [organizationId, setOrganizationId] = useState<string | null>(null);
 
   useEffect(() => {
     loadTasks();
@@ -61,6 +66,8 @@ export function TasksPanel() {
     setDescription("");
     setPriority("medium");
     setDueDate("");
+    setVisibility(context.mode === "organization" && currentOrg ? "organization" : "personal");
+    setOrganizationId(context.mode === "organization" && currentOrg ? currentOrg.id : null);
     setEditingTask(null);
   };
 
@@ -71,6 +78,8 @@ export function TasksPanel() {
       setDescription(task.description || "");
       setPriority(task.priority);
       setDueDate(task.due_date ? task.due_date.split("T")[0] : "");
+      setVisibility(task.visibility);
+      setOrganizationId(task.organization_id);
     } else {
       resetForm();
     }
@@ -89,6 +98,8 @@ export function TasksPanel() {
       priority,
       due_date: dueDate ? new Date(dueDate).toISOString() : null,
       completed: editingTask?.completed || false,
+      visibility,
+      organization_id: organizationId,
     };
 
     if (editingTask) {
@@ -227,6 +238,21 @@ export function TasksPanel() {
                   />
                 </div>
               </div>
+              
+              {/* Visibility Selector */}
+              {context.mode === "organization" && currentOrg && (
+                <div className="space-y-2">
+                  <Label>Visibility</Label>
+                  <VisibilitySelector
+                    value={visibility}
+                    onChange={(v, orgId) => {
+                      setVisibility(v);
+                      setOrganizationId(orgId);
+                    }}
+                  />
+                </div>
+              )}
+              
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
@@ -287,6 +313,12 @@ export function TasksPanel() {
                     <Badge variant="outline" className={priorityColors[task.priority]}>
                       {task.priority}
                     </Badge>
+                    {task.visibility === "organization" && (
+                      <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 gap-1">
+                        <Building2 className="h-3 w-3" />
+                        Shared
+                      </Badge>
+                    )}
                   </div>
                   {task.description && (
                     <p className="text-sm text-muted-foreground line-clamp-2">

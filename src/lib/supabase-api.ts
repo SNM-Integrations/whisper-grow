@@ -79,6 +79,8 @@ export interface Task {
   priority: "low" | "medium" | "high";
   due_date: string | null;
   category_id: string | null;
+  visibility: "personal" | "organization";
+  organization_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -449,7 +451,8 @@ export async function fetchTasks(): Promise<Task[]> {
   }
   return (data || []).map(t => ({
     ...t,
-    priority: t.priority as "low" | "medium" | "high"
+    priority: t.priority as "low" | "medium" | "high",
+    visibility: t.visibility as "personal" | "organization"
   }));
 }
 
@@ -467,7 +470,11 @@ export async function createTask(task: Omit<Task, "id" | "created_at" | "updated
     console.error("Error creating task:", error);
     return null;
   }
-  return data ? { ...data, priority: data.priority as "low" | "medium" | "high" } : null;
+  return data ? { 
+    ...data, 
+    priority: data.priority as "low" | "medium" | "high",
+    visibility: data.visibility as "personal" | "organization"
+  } : null;
 }
 
 export async function updateTask(id: string, task: Partial<Task>): Promise<Task | null> {
