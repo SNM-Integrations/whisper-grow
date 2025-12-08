@@ -1,57 +1,75 @@
 # Frontend Tasks (Lovable)
 
 > Owner: Lovable
-> Last updated: 2025-01-08
+> Last updated: 2025-12-08
 
-## STATUS: Cloud Migration Complete ✅
+## STATUS: Organization System Complete ✅
 
-The frontend has been migrated to Lovable Cloud (Supabase). The localhost Python backend is no longer required.
+The frontend has full organization/workspace support with role-based access control and resource sharing.
 
 ---
 
-## Current Sprint: Cloud Integration Polish
+## Completed Features
 
-### Completed in Cloud Migration (v0.5.0)
+### v0.7.0 - Organization Polish
+- [x] Pending invitations UI (accept/decline)
+- [x] Task visibility/sharing with organizations
+- [x] AI chat tool improvements (relationship types for contacts)
+- [x] Shared badge on organization-visible tasks
 
-- [x] Created Supabase tables for CRM (contacts, companies, deals)
-- [x] Created Supabase tables for chat (conversations, messages)
-- [x] Created `chat` edge function using Lovable AI
-- [x] Created `src/lib/supabase-api.ts` - cloud API layer
-- [x] Added authentication (AuthForm + useAuth hook)
-- [x] Updated Index.tsx to use streaming AI chat
-- [x] Enabled auto-confirm email for easy testing
+### v0.6.0 - Organization System
+- [x] Multi-tenant organization/workspace support
+- [x] Role-based access control (owner/admin/member)
+- [x] Organization switcher in header
+- [x] Organization settings page (member management)
+- [x] Visibility selector for resources
+- [x] RLS policies for org-level access
 
-### To Do (For Claude Code)
+### v0.5.0 - Cloud Migration
+- [x] Supabase tables for CRM and chat
+- [x] Chat edge function with AI tool calling
+- [x] Authentication with auto-confirm email
+- [x] Streaming AI responses
 
-#### Priority 1: Wire Existing Components to Cloud
+---
 
-1. **NotesPanel.tsx**
-   - Currently imports from `@/lib/api` (localhost)
-   - Need to change to `@/lib/supabase-api`
-   - Notes table already exists in Supabase
+## To Do
 
-2. **SearchPanel.tsx**
-   - Currently calls localhost for semantic search
-   - Options:
-     - Create a search edge function, OR
-     - Use Supabase full-text search on notes
+### Priority 1: Extend Visibility to All Resources
 
-3. **CRM Components** (currently use mock data)
-   - `ContactsList.tsx` → use `fetchContacts()` from supabase-api
-   - `DealsPipeline.tsx` → use `fetchDeals()` from supabase-api
-   - `CompaniesList.tsx` → use `fetchCompanies()` from supabase-api
+Currently only Tasks have full visibility support. Need to add to:
 
-#### Priority 2: Cleanup
+1. **Calendar Events**
+   - Add VisibilitySelector to CalendarEventDialog
+   - Show shared indicator on events
 
-- [ ] Remove `backend/` folder (not needed for cloud)
-- [ ] Remove `src/lib/api.ts` (replaced by supabase-api.ts)
-- [ ] Update MASTER_PLAN.md to reflect cloud architecture
+2. **Notes**
+   - Add VisibilitySelector to NoteEditor
+   - Show shared indicator in NotesPanel
 
-#### Priority 3: Polish
+3. **CRM (Contacts, Companies, Deals)**
+   - Add VisibilitySelector to all CRM dialogs
+   - Show shared indicators in lists
+
+### Priority 2: AI Tool Enhancements
+
+1. **Add visibility to AI tools**
+   - `create_task` should accept visibility parameter
+   - `create_calendar_event` should accept visibility parameter
+   - Allow AI to create org-shared resources
+
+2. **Add search/query tools**
+   - `search_contacts` - Find contacts by name/company
+   - `search_deals` - Find deals by stage/value
+   - `get_contacts` - List contacts
+
+### Priority 3: Polish
 
 - [ ] Markdown rendering in AI responses
-- [ ] Mobile responsive design improvements
-- [ ] Error handling improvements
+- [ ] Typing indicator in chat
+- [ ] Copy button on AI messages
+- [ ] Mobile responsive improvements
+- [ ] Email notifications for invitations (needs Resend API)
 
 ---
 
