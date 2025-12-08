@@ -35,6 +35,7 @@ import { CalendarView } from "@/components/calendar/CalendarView";
 import { ContactsList } from "@/components/crm/ContactsList";
 import { DealsPipeline } from "@/components/crm/DealsPipeline";
 import { CompaniesList } from "@/components/crm/CompaniesList";
+import { TasksPanel } from "@/components/tasks/TasksPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
@@ -494,12 +495,8 @@ const Index = () => {
 
             {/* Tasks Tab */}
             {activeTab === "tasks" && (
-              <div className="flex-1 p-4 flex items-center justify-center">
-                <div className="text-center">
-                  <CheckSquare className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                  <h2 className="text-xl font-semibold mb-2">Tasks</h2>
-                  <p className="text-muted-foreground">Task management coming soon</p>
-                </div>
+              <div className="flex-1 overflow-hidden">
+                <TasksPanel />
               </div>
             )}
 
