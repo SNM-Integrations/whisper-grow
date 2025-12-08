@@ -117,30 +117,15 @@ export function useOrganization() {
   const createOrganization = async (name: string): Promise<Organization | null> => {
     if (!user) return null;
     
-    const slug = name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    const { data, error } = await supabase.rpc('create_organization', { org_name: name });
     
-    const { data: org, error: orgError } = await supabase
-      .from("organizations")
-      .insert({ name, slug })
-      .select()
-      .single();
-    
-    if (orgError || !org) {
-      console.error("Error creating organization:", orgError);
+    if (error || !data) {
+      console.error("Error creating organization:", error);
       return null;
     }
 
-    // Add creator as owner
-    const { error: memberError } = await supabase
-      .from("organization_members")
-      .insert({ organization_id: org.id, user_id: user.id, role: "owner" });
-
-    if (memberError) {
-      console.error("Error adding owner:", memberError);
-    }
-
     await fetchOrganizations();
-    return org;
+    return organizations.find(o => o.id === data) || null;
   };
 
   const switchToOrganization = (org: Organization | null) => {
