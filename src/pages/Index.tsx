@@ -16,7 +16,8 @@ import {
   Users,
   CheckSquare,
   LogOut,
-  X
+  X,
+  Trash2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -25,6 +26,7 @@ import {
   fetchMessages,
   createConversation,
   saveMessage,
+  deleteConversation,
   type Conversation 
 } from "@/lib/supabase-api";
 import { useAuth } from "@/hooks/useAuth";
@@ -351,19 +353,39 @@ const Index = () => {
                   <ScrollArea className="flex-1">
                     <div className="p-2 space-y-1">
                       {conversations.map((conv) => (
-                        <button
+                        <div
                           key={conv.id}
-                          onClick={() => loadConversation(conv.id)}
                           className={cn(
-                            "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors",
+                            "w-full text-left p-3 rounded-lg hover:bg-accent transition-colors group flex items-center gap-2",
                             conversationId === conv.id && "bg-accent"
                           )}
                         >
-                          <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => loadConversation(conv.id)}
+                            className="flex-1 flex items-center gap-2 min-w-0"
+                          >
                             <MessageSquare className="h-4 w-4 text-muted-foreground shrink-0" />
                             <span className="truncate text-sm">{conv.title}</span>
-                          </div>
-                        </button>
+                          </button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              if (confirm("Delete this conversation?")) {
+                                await deleteConversation(conv.id);
+                                if (conversationId === conv.id) {
+                                  startNewConversation();
+                                }
+                                loadConversations();
+                                toast.success("Conversation deleted");
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-3 w-3 text-muted-foreground hover:text-destructive" />
+                          </Button>
+                        </div>
                       ))}
                       {conversations.length === 0 && (
                         <p className="text-sm text-muted-foreground p-3">
