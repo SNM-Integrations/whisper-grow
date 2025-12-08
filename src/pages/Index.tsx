@@ -15,18 +15,20 @@ import {
   Calendar,
   Users,
   CheckSquare,
-  ChevronLeft,
-  ChevronRight,
+  LogOut,
   X
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
-  sendMessage, 
-  fetchConversations, 
-  fetchConversation, 
-  checkHealth,
+  streamChat,
+  fetchConversations,
+  fetchMessages,
+  createConversation,
+  saveMessage,
   type Conversation 
-} from "@/lib/api";
+} from "@/lib/supabase-api";
+import { useAuth } from "@/hooks/useAuth";
+import { AuthForm } from "@/components/auth/AuthForm";
 import NotesPanel from "@/components/notes/NotesPanel";
 import SearchPanel from "@/components/search/SearchPanel";
 import { CalendarView } from "@/components/calendar/CalendarView";
@@ -34,6 +36,7 @@ import { ContactsList } from "@/components/crm/ContactsList";
 import { DealsPipeline } from "@/components/crm/DealsPipeline";
 import { CompaniesList } from "@/components/crm/CompaniesList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 interface Message {
   id: string;
@@ -45,6 +48,7 @@ interface Message {
 type MainTab = "chat" | "calendar" | "crm" | "tasks" | "notes" | "search";
 
 const Index = () => {
+  const { user, loading: authLoading, signOut } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -52,25 +56,20 @@ const Index = () => {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeTab, setActiveTab] = useState<MainTab>("chat");
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
-  const [backendStatus, setBackendStatus] = useState<"checking" | "connected" | "disconnected">("checking");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [crmSubTab, setCrmSubTab] = useState<"contacts" | "deals" | "companies">("contacts");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    checkBackendHealth();
-    loadConversations();
-  }, []);
+    if (user) {
+      loadConversations();
+    }
+  }, [user]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
-
-  const checkBackendHealth = async () => {
-    const health = await checkHealth();
-    setBackendStatus(health ? "connected" : "disconnected");
-  };
 
   const loadConversations = async () => {
     const data = await fetchConversations();
@@ -88,27 +87,65 @@ const Index = () => {
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const userInput = input.trim();
     setInput("");
     setIsLoading(true);
 
     try {
-      const data = await sendMessage(userMessage.content, conversationId);
-      
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: data.reply,
-        timestamp: new Date(),
-      };
+      // Create conversation if needed
+      let currentConvId = conversationId;
+      if (!currentConvId) {
+        const conv = await createConversation(userInput.slice(0, 50));
+        if (!conv) throw new Error("Failed to create conversation");
+        currentConvId = conv.id;
+        setConversationId(currentConvId);
+      }
 
-      setMessages((prev) => [...prev, assistantMessage]);
-      setConversationId(data.conversation_id);
-      loadConversations();
-    } catch (error) {
+      // Save user message
+      await saveMessage(currentConvId, "user", userInput);
+
+      // Prepare messages for AI
+      const chatMessages = [...messages, userMessage].map(m => ({
+        role: m.role,
+        content: m.content
+      }));
+
+      let assistantContent = "";
+      
+      await streamChat({
+        messages: chatMessages,
+        conversationId: currentConvId,
+        onDelta: (delta) => {
+          assistantContent += delta;
+          setMessages((prev) => {
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") {
+              return prev.map((m, i) => 
+                i === prev.length - 1 ? { ...m, content: assistantContent } : m
+              );
+            }
+            return [...prev, {
+              id: crypto.randomUUID(),
+              role: "assistant" as const,
+              content: assistantContent,
+              timestamp: new Date(),
+            }];
+          });
+        },
+        onDone: async () => {
+          // Save assistant message
+          if (currentConvId && assistantContent) {
+            await saveMessage(currentConvId, "assistant", assistantContent);
+          }
+          loadConversations();
+        },
+      });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to send message");
       const errorMessage: Message = {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: "I couldn't connect to the brain service. Make sure the backend is running at localhost:8000.",
+        content: "Sorry, I encountered an error. Please try again.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorMessage]);
@@ -131,18 +168,18 @@ const Index = () => {
 
   const loadConversation = async (id: string) => {
     try {
-      const data = await fetchConversation(id);
+      const msgs = await fetchMessages(id);
       setConversationId(id);
       setMessages(
-        data.messages.map((m: any) => ({
-          id: crypto.randomUUID(),
+        msgs.map((m) => ({
+          id: m.id,
           role: m.role,
           content: m.content,
-          timestamp: new Date(m.timestamp),
+          timestamp: new Date(m.created_at),
         }))
       );
     } catch {
-      // Handle error
+      toast.error("Failed to load conversation");
     }
   };
 
@@ -166,6 +203,19 @@ const Index = () => {
 
   // When on a non-chat tab, show chat as side panel
   const showChatAsSidePanel = activeTab !== "chat" && chatPanelOpen;
+
+  // Show auth form if not logged in
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <AuthForm onSuccess={() => {}} />;
+  }
 
   return (
     <div className="flex h-screen bg-background">
@@ -260,19 +310,10 @@ const Index = () => {
           
           {activeTab === "chat" && (
             <div className="ml-auto flex items-center gap-2">
-              <div
-                className={cn(
-                  "w-2 h-2 rounded-full",
-                  backendStatus === "connected" && "bg-green-500",
-                  backendStatus === "disconnected" && "bg-red-500",
-                  backendStatus === "checking" && "bg-yellow-500 animate-pulse"
-                )}
-              />
-              <span className="text-xs text-muted-foreground">
-                {backendStatus === "connected" && "Connected"}
-                {backendStatus === "disconnected" && "Backend offline"}
-                {backendStatus === "checking" && "Checking..."}
-              </span>
+              <Button variant="ghost" size="sm" onClick={signOut} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
             </div>
           )}
         </header>
@@ -335,11 +376,6 @@ const Index = () => {
                           <p className="text-muted-foreground">
                             Start a conversation with your AI assistant.
                           </p>
-                          {backendStatus === "disconnected" && (
-                            <p className="text-sm text-destructive mt-4">
-                              Backend not running. Start it with: cd backend && python main.py
-                            </p>
-                          )}
                         </div>
                       )}
 
