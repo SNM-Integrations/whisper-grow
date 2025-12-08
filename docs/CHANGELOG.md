@@ -4,6 +4,74 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.6.0] - 2025-12-08
+
+### Organization System: Multi-Tenancy Support (Lovable)
+
+**What happened:** Added full organization/workspace system for team collaboration with role-based access control.
+
+### Added
+
+#### Database Tables (via Supabase migration)
+- `organizations` - Organization entities with name/slug
+- `organization_members` - Links users to orgs with roles (owner/admin/member)
+- `organization_invitations` - Pending invites with expiration
+
+#### New Database Types
+- `org_role` enum: 'owner', 'admin', 'member'
+- `resource_visibility` enum: 'personal', 'organization'
+
+#### Database Schema Updates
+- Added `organization_id` and `visibility` columns to:
+  - `conversations`, `tasks`, `notes`, `contacts`, `companies`, `deals`, `calendar_events`
+- Updated RLS policies on all tables to support organization-level access
+
+#### Security Functions (security definer)
+- `is_org_member(user_id, org_id)` - Check org membership
+- `is_org_admin(user_id, org_id)` - Check admin/owner status
+- `get_user_org_ids(user_id)` - Get all orgs user belongs to
+
+#### New Components
+- `src/hooks/useOrganization.ts` - Organization state management
+  - Create/switch organizations
+  - Invite/remove members
+  - Update roles
+  - Context persistence (localStorage)
+  
+- `src/components/organization/OrganizationSwitcher.tsx` - UI to toggle between Personal and Organization modes
+- `src/components/organization/OrganizationSettings.tsx` - Admin panel for member management
+- `src/components/organization/VisibilitySelector.tsx` - Resource visibility picker
+
+#### Updated Files
+- `src/pages/Index.tsx` - Added OrganizationSwitcher to header
+- `src/pages/Settings.tsx` - Added Organization tab with admin settings
+
+### For Claude Code: What You Need to Know
+
+The organization system is now fully implemented:
+
+1. **Visibility Logic:**
+   - Resources with `visibility = 'personal'` are only visible to owner
+   - Resources with `visibility = 'organization'` are visible to all org members
+   - RLS policies enforce this automatically
+
+2. **Context Switching:**
+   - Users can switch between Personal and Organization modes
+   - Context is stored in localStorage for persistence
+   - When in org mode, new resources can be shared with the org
+
+3. **Role Hierarchy:**
+   - Owner: Full control, can't be removed
+   - Admin: Manage members, invite users, update roles
+   - Member: View/create org-shared resources
+
+4. **Invitation Flow:**
+   - Admins can invite by email
+   - Invitations expire after 7 days
+   - (Note: Acceptance flow not yet implemented)
+
+---
+
 ## [0.5.0] - 2025-01-08
 
 ### Cloud Migration: Lovable Cloud Integration (Lovable)
