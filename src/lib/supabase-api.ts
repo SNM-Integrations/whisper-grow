@@ -71,6 +71,18 @@ export interface SearchResult {
   type: "note" | "conversation";
 }
 
+export interface Task {
+  id: string;
+  title: string;
+  description: string | null;
+  completed: boolean;
+  priority: "low" | "medium" | "high";
+  due_date: string | null;
+  category_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ============ NOTES ============
 export async function fetchNotes(): Promise<Note[]> {
   const { data, error } = await supabase
@@ -419,6 +431,64 @@ export async function deleteDeal(id: string): Promise<boolean> {
   const { error } = await supabase.from("deals").delete().eq("id", id);
   if (error) {
     console.error("Error deleting deal:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============ TASKS ============
+export async function fetchTasks(): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .order("created_at", { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching tasks:", error);
+    return [];
+  }
+  return (data || []).map(t => ({
+    ...t,
+    priority: t.priority as "low" | "medium" | "high"
+  }));
+}
+
+export async function createTask(task: Omit<Task, "id" | "created_at" | "updated_at" | "category_id">): Promise<Task | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({ ...task, user_id: user.id })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error creating task:", error);
+    return null;
+  }
+  return data ? { ...data, priority: data.priority as "low" | "medium" | "high" } : null;
+}
+
+export async function updateTask(id: string, task: Partial<Task>): Promise<Task | null> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ ...task, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error updating task:", error);
+    return null;
+  }
+  return data ? { ...data, priority: data.priority as "low" | "medium" | "high" } : null;
+}
+
+export async function deleteTask(id: string): Promise<boolean> {
+  const { error } = await supabase.from("tasks").delete().eq("id", id);
+  if (error) {
+    console.error("Error deleting task:", error);
     return false;
   }
   return true;
