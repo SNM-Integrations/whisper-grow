@@ -40,6 +40,8 @@ interface CalendarEventDialogProps {
   event?: CalendarEvent | null;
   onSave: () => void;
   defaultDate?: Date;
+  defaultTime?: string;
+  defaultProjectId?: string;
 }
 
 export function CalendarEventDialog({
@@ -48,6 +50,8 @@ export function CalendarEventDialog({
   event,
   onSave,
   defaultDate,
+  defaultTime,
+  defaultProjectId,
 }: CalendarEventDialogProps) {
   const { currentOrg, context } = useOrganization();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -96,11 +100,17 @@ export function CalendarEventDialog({
     const dateStr = date.toISOString().split("T")[0];
     setStartDate(dateStr);
     setEndDate(dateStr);
-    setStartTime("09:00");
-    setEndTime("10:00");
+    
+    // Use defaultTime if provided, otherwise default to 9am-10am
+    const startTimeValue = defaultTime || "09:00";
+    const [startHour] = startTimeValue.split(":");
+    const endHour = (parseInt(startHour) + 1).toString().padStart(2, "0");
+    setStartTime(startTimeValue);
+    setEndTime(`${endHour}:00`);
+    
     setVisibility(context.mode === "organization" && currentOrg ? "organization" : "personal");
     setOrganizationId(context.mode === "organization" && currentOrg ? currentOrg.id : null);
-    setProjectId(null);
+    setProjectId(defaultProjectId || null);
   };
 
   const handleSave = async () => {

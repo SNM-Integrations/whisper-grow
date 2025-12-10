@@ -6,6 +6,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ChevronLeft, 
   Plus, 
@@ -16,10 +17,7 @@ import {
   Download,
   CheckSquare,
   Calendar,
-  MoreVertical,
-  ExternalLink
 } from "lucide-react";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { 
   fetchProjectDocuments, 
@@ -37,6 +35,9 @@ import {
 import { cn } from "@/lib/utils";
 import { RichTextEditor } from "./RichTextEditor";
 import { format } from "date-fns";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganization";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectDetailProps {
   project: Project;
@@ -45,6 +46,7 @@ interface ProjectDetailProps {
 }
 
 export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, onUpdate }) => {
+  const { currentOrg, context } = useOrganization();
   const [documents, setDocuments] = useState<ProjectDocument[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
@@ -55,6 +57,30 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
   const [activeTab, setActiveTab] = useState("documents");
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Task creation state
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [newTaskTitle, setNewTaskTitle] = useState("");
+  const [newTaskDescription, setNewTaskDescription] = useState("");
+  const [newTaskPriority, setNewTaskPriority] = useState("medium");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
+  const [taskOwner, setTaskOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
+
+  // Event creation state
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [newEventTitle, setNewEventTitle] = useState("");
+  const [newEventDescription, setNewEventDescription] = useState("");
+  const [newEventStartDate, setNewEventStartDate] = useState("");
+  const [newEventStartTime, setNewEventStartTime] = useState("09:00");
+  const [newEventEndDate, setNewEventEndDate] = useState("");
+  const [newEventEndTime, setNewEventEndTime] = useState("10:00");
+  const [eventOwner, setEventOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
 
   useEffect(() => {
     loadData();
@@ -164,6 +190,112 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const resetTaskForm = () => {
+    setNewTaskTitle("");
+    setNewTaskDescription("");
+    setNewTaskPriority("medium");
+    setNewTaskDueDate("");
+    setTaskOwner({
+      visibility: context.mode === "organization" && currentOrg ? "organization" : "personal",
+      organizationId: context.mode === "organization" && currentOrg ? currentOrg.id : null,
+    });
+  };
+
+  const resetEventForm = () => {
+    const today = new Date().toISOString().split("T")[0];
+    setNewEventTitle("");
+    setNewEventDescription("");
+    setNewEventStartDate(today);
+    setNewEventStartTime("09:00");
+    setNewEventEndDate(today);
+    setNewEventEndTime("10:00");
+    setEventOwner({
+      visibility: context.mode === "organization" && currentOrg ? "organization" : "personal",
+      organizationId: context.mode === "organization" && currentOrg ? currentOrg.id : null,
+    });
+  };
+
+  const handleCreateTask = async () => {
+    if (!newTaskTitle.trim()) {
+      toast.error("Task title is required");
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    const { error } = await supabase.from("tasks").insert({
+      title: newTaskTitle.trim(),
+      description: newTaskDescription.trim() || null,
+      priority: newTaskPriority,
+      due_date: newTaskDueDate || null,
+      project_id: project.id,
+      user_id: user.id,
+      visibility: taskOwner.visibility,
+      organization_id: taskOwner.organizationId,
+    });
+
+    if (error) {
+      toast.error("Failed to create task");
+      return;
+    }
+
+    toast.success("Task created");
+    setTaskDialogOpen(false);
+    resetTaskForm();
+    loadData();
+  };
+
+  const handleCreateEvent = async () => {
+    if (!newEventTitle.trim()) {
+      toast.error("Event title is required");
+      return;
+    }
+
+    if (!newEventStartDate || !newEventEndDate) {
+      toast.error("Dates are required");
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Not authenticated");
+      return;
+    }
+
+    const startDateTime = new Date(`${newEventStartDate}T${newEventStartTime}`);
+    const endDateTime = new Date(`${newEventEndDate}T${newEventEndTime}`);
+
+    if (endDateTime <= startDateTime) {
+      toast.error("End time must be after start time");
+      return;
+    }
+
+    const { error } = await supabase.from("calendar_events").insert({
+      title: newEventTitle.trim(),
+      description: newEventDescription.trim() || null,
+      start_time: startDateTime.toISOString(),
+      end_time: endDateTime.toISOString(),
+      project_id: project.id,
+      user_id: user.id,
+      visibility: eventOwner.visibility,
+      organization_id: eventOwner.organizationId,
+    });
+
+    if (error) {
+      toast.error("Failed to create event");
+      return;
+    }
+
+    toast.success("Event created");
+    setEventDialogOpen(false);
+    resetEventForm();
+    loadData();
   };
 
   // Document editor view
@@ -360,13 +492,83 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
 
         {/* Tasks Tab */}
         <TabsContent value="tasks" className="flex-1 mt-0 overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <Dialog open={taskDialogOpen} onOpenChange={(open) => {
+              setTaskDialogOpen(open);
+              if (open) resetTaskForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Task
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New Task</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={newTaskTitle}
+                      onChange={(e) => setNewTaskTitle(e.target.value)}
+                      placeholder="Task title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={newTaskDescription}
+                      onChange={(e) => setNewTaskDescription(e.target.value)}
+                      placeholder="Optional description"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Priority</Label>
+                      <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="low">Low</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Due Date</Label>
+                      <Input
+                        type="date"
+                        value={newTaskDueDate}
+                        onChange={(e) => setNewTaskDueDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <OwnerSelector
+                    value={taskOwner}
+                    onChange={setTaskOwner}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setTaskDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateTask}>Create</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-2">
               {tasks.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <CheckSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No tasks linked to this project</p>
-                  <p className="text-sm">Link tasks from the Tasks panel</p>
+                  <p className="text-sm">Create a task or link from the Tasks panel</p>
                 </div>
               ) : (
                 tasks.map((task) => (
@@ -400,13 +602,96 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
 
         {/* Calendar Events Tab */}
         <TabsContent value="calendar" className="flex-1 mt-0 overflow-hidden">
+          <div className="p-4 border-b border-border">
+            <Dialog open={eventDialogOpen} onOpenChange={(open) => {
+              setEventDialogOpen(open);
+              if (open) resetEventForm();
+            }}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  New Event
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>New Event</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 pt-4">
+                  <div className="space-y-2">
+                    <Label>Title</Label>
+                    <Input
+                      value={newEventTitle}
+                      onChange={(e) => setNewEventTitle(e.target.value)}
+                      placeholder="Event title"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Description</Label>
+                    <Textarea
+                      value={newEventDescription}
+                      onChange={(e) => setNewEventDescription(e.target.value)}
+                      placeholder="Optional description"
+                      rows={2}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Start Date</Label>
+                      <Input
+                        type="date"
+                        value={newEventStartDate}
+                        onChange={(e) => setNewEventStartDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Start Time</Label>
+                      <Input
+                        type="time"
+                        value={newEventStartTime}
+                        onChange={(e) => setNewEventStartTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>End Date</Label>
+                      <Input
+                        type="date"
+                        value={newEventEndDate}
+                        onChange={(e) => setNewEventEndDate(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>End Time</Label>
+                      <Input
+                        type="time"
+                        value={newEventEndTime}
+                        onChange={(e) => setNewEventEndTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <OwnerSelector
+                    value={eventOwner}
+                    onChange={setEventOwner}
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={() => setEventDialogOpen(false)}>
+                      Cancel
+                    </Button>
+                    <Button onClick={handleCreateEvent}>Create</Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
           <ScrollArea className="flex-1">
             <div className="p-4 space-y-2">
               {calendarEvents.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
                   <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                   <p>No events linked to this project</p>
-                  <p className="text-sm">Link events from the Calendar</p>
+                  <p className="text-sm">Create an event or link from the Calendar</p>
                 </div>
               ) : (
                 calendarEvents.map((event) => (
