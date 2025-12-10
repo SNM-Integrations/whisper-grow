@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Client } from "./ClientsList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { ResourceVisibility } from "@/hooks/useOrganization";
 
 interface ClientDialogProps {
   open: boolean;
@@ -44,6 +46,10 @@ interface ClientFormData {
 
 export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
 
   const form = useForm<ClientFormData>({
     defaultValues: {
@@ -66,6 +72,10 @@ export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) 
         revenue: client.revenue,
         status: client.status,
       });
+      setOwner({
+        visibility: (client as any).visibility || "personal",
+        organizationId: (client as any).organization_id || null,
+      });
     } else {
       form.reset({
         name: "",
@@ -75,6 +85,7 @@ export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) 
         revenue: "",
         status: "active",
       });
+      setOwner({ visibility: "personal", organizationId: null });
     }
   }, [client, form]);
 
@@ -102,6 +113,8 @@ export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) 
       revenue: data.revenue || null,
       company_type: "client" as const,
       notes: data.status,
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
     };
 
     if (client) {
@@ -254,6 +267,10 @@ export function ClientDialog({ open, onOpenChange, client }: ClientDialogProps) 
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <OwnerSelector
+              value={owner}
+              onChange={setOwner}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

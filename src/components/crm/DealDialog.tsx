@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Deal } from "./DealsPipeline";
 import { createDeal, updateDeal } from "@/lib/supabase-api";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { ResourceVisibility } from "@/hooks/useOrganization";
 
 interface DealDialogProps {
   open: boolean;
@@ -41,6 +43,10 @@ interface DealFormData {
 
 export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
 
   const form = useForm<DealFormData>({
     defaultValues: {
@@ -59,6 +65,10 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
         stage: deal.stage,
         closeDate: deal.closeDate,
       });
+      setOwner({
+        visibility: (deal as any).visibility || "personal",
+        organizationId: (deal as any).organization_id || null,
+      });
     } else {
       form.reset({
         title: "",
@@ -66,6 +76,7 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
         stage: "lead",
         closeDate: "",
       });
+      setOwner({ visibility: "personal", organizationId: null });
     }
   }, [deal, form]);
 
@@ -84,6 +95,8 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
       company_id: null,
       expected_close_date: data.closeDate || null,
       notes: null,
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
     };
 
     if (deal) {
@@ -172,6 +185,10 @@ export function DealDialog({ open, onOpenChange, deal }: DealDialogProps) {
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <OwnerSelector
+              value={owner}
+              onChange={setOwner}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

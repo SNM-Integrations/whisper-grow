@@ -31,7 +31,7 @@ import {
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { VisibilitySelector } from "@/components/organization/VisibilitySelector";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
 import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganization";
 
 export function TasksPanel() {
@@ -240,19 +240,14 @@ export function TasksPanel() {
                 </div>
               </div>
               
-              {/* Visibility Selector */}
-              {context.mode === "organization" && currentOrg && (
-                <div className="space-y-2">
-                  <Label>Visibility</Label>
-                  <VisibilitySelector
-                    value={visibility}
-                    onChange={(v, orgId) => {
-                      setVisibility(v);
-                      setOrganizationId(orgId);
-                    }}
-                  />
-                </div>
-              )}
+              {/* Owner Selector */}
+              <OwnerSelector
+                value={{ visibility, organizationId }}
+                onChange={({ visibility: v, organizationId: orgId }) => {
+                  setVisibility(v);
+                  setOrganizationId(orgId);
+                }}
+              />
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>

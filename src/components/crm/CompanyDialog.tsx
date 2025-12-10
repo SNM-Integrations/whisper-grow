@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { CompanyLead } from "./CompaniesList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { ResourceVisibility } from "@/hooks/useOrganization";
 
 interface CompanyDialogProps {
   open: boolean;
@@ -44,6 +46,10 @@ interface CompanyFormData {
 
 export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
 
   const form = useForm<CompanyFormData>({
     defaultValues: {
@@ -66,6 +72,10 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
         revenue: company.revenue,
         status: company.status,
       });
+      setOwner({
+        visibility: (company as any).visibility || "personal",
+        organizationId: (company as any).organization_id || null,
+      });
     } else {
       form.reset({
         name: "",
@@ -75,6 +85,7 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
         revenue: "",
         status: "new",
       });
+      setOwner({ visibility: "personal", organizationId: null });
     }
   }, [company, form]);
 
@@ -102,6 +113,8 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
       revenue: data.revenue || null,
       company_type: "lead" as const,
       notes: data.status,
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
     };
 
     if (company) {
@@ -257,6 +270,10 @@ export function CompanyDialog({ open, onOpenChange, company }: CompanyDialogProp
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <OwnerSelector
+              value={owner}
+              onChange={setOwner}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
