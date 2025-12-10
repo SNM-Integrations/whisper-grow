@@ -17,7 +17,8 @@ import {
   CheckSquare,
   LogOut,
   X,
-  Trash2
+  Trash2,
+  FolderOpen
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { 
@@ -38,6 +39,7 @@ import { ContactsList } from "@/components/crm/ContactsList";
 import { DealsPipeline } from "@/components/crm/DealsPipeline";
 import { CompaniesList } from "@/components/crm/CompaniesList";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
+import { ProjectsPanel } from "@/components/projects/ProjectsPanel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { OrganizationSwitcher } from "@/components/organization/OrganizationSwitcher";
@@ -50,7 +52,7 @@ interface Message {
   timestamp: Date;
 }
 
-type MainTab = "chat" | "calendar" | "crm" | "tasks" | "notes" | "search";
+type MainTab = "chat" | "calendar" | "crm" | "tasks" | "notes" | "search" | "projects";
 
 const Index = () => {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -273,6 +275,15 @@ const Index = () => {
           title="Notes"
         >
           <FileText className="h-5 w-5" />
+        </Button>
+        <Button
+          variant={activeTab === "projects" ? "secondary" : "ghost"}
+          size="icon"
+          onClick={() => handleTabChange("projects")}
+          className="h-12 w-12"
+          title="Projects"
+        >
+          <FolderOpen className="h-5 w-5" />
         </Button>
         <Button
           variant={activeTab === "search" ? "secondary" : "ghost"}
@@ -548,6 +559,13 @@ const Index = () => {
             {activeTab === "notes" && (
               <div className="flex-1 overflow-hidden">
                 <NotesPanel />
+              </div>
+            )}
+
+            {/* Projects Tab */}
+            {activeTab === "projects" && (
+              <div className="flex-1 overflow-hidden">
+                <ProjectsPanel />
               </div>
             )}
 

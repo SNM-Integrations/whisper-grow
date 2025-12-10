@@ -100,6 +100,7 @@ export function TasksPanel() {
       completed: editingTask?.completed || false,
       visibility,
       organization_id: organizationId,
+      project_id: null,
     };
 
     if (editingTask) {
