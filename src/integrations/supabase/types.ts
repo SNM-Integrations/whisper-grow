@@ -56,6 +56,7 @@ export type Database = {
           is_synced: boolean
           location: string | null
           organization_id: string | null
+          project_id: string | null
           start_time: string
           title: string
           updated_at: string
@@ -73,6 +74,7 @@ export type Database = {
           is_synced?: boolean
           location?: string | null
           organization_id?: string | null
+          project_id?: string | null
           start_time: string
           title: string
           updated_at?: string
@@ -90,6 +92,7 @@ export type Database = {
           is_synced?: boolean
           location?: string | null
           organization_id?: string | null
+          project_id?: string | null
           start_time?: string
           title?: string
           updated_at?: string
@@ -102,6 +105,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "calendar_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -307,6 +317,7 @@ export type Database = {
           id: string
           notes: string | null
           organization_id: string | null
+          project_id: string | null
           stage: string
           title: string
           updated_at: string
@@ -323,6 +334,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
+          project_id?: string | null
           stage?: string
           title: string
           updated_at?: string
@@ -339,6 +351,7 @@ export type Database = {
           id?: string
           notes?: string | null
           organization_id?: string | null
+          project_id?: string | null
           stage?: string
           title?: string
           updated_at?: string
@@ -366,6 +379,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -730,6 +750,116 @@ export type Database = {
         }
         Relationships: []
       }
+      project_documents: {
+        Row: {
+          content: string | null
+          created_at: string
+          file_path: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          project_id: string
+          type: Database["public"]["Enums"]["document_type"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          project_id: string
+          type?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          project_id?: string
+          type?: Database["public"]["Enums"]["document_type"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          assigned_to: string | null
+          color: string | null
+          company_id: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          organization_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          visibility: Database["public"]["Enums"]["resource_visibility"]
+        }
+        Insert: {
+          assigned_to?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          organization_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          visibility?: Database["public"]["Enums"]["resource_visibility"]
+        }
+        Update: {
+          assigned_to?: string | null
+          color?: string | null
+          company_id?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          organization_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          visibility?: Database["public"]["Enums"]["resource_visibility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -743,6 +873,7 @@ export type Database = {
           meeting_id: string | null
           organization_id: string | null
           priority: string
+          project_id: string | null
           title: string
           updated_at: string
           user_id: string
@@ -760,6 +891,7 @@ export type Database = {
           meeting_id?: string | null
           organization_id?: string | null
           priority?: string
+          project_id?: string | null
           title: string
           updated_at?: string
           user_id: string
@@ -777,6 +909,7 @@ export type Database = {
           meeting_id?: string | null
           organization_id?: string | null
           priority?: string
+          project_id?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -802,6 +935,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -840,6 +980,7 @@ export type Database = {
     Enums: {
       company_type: "lead" | "client"
       contact_type: "contact" | "lead"
+      document_type: "file" | "document"
       note_type: "original" | "extracted"
       org_role: "owner" | "admin" | "member"
       resource_visibility: "personal" | "organization"
@@ -972,6 +1113,7 @@ export const Constants = {
     Enums: {
       company_type: ["lead", "client"],
       contact_type: ["contact", "lead"],
+      document_type: ["file", "document"],
       note_type: ["original", "extracted"],
       org_role: ["owner", "admin", "member"],
       resource_visibility: ["personal", "organization"],

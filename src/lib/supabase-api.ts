@@ -79,8 +79,49 @@ export interface Task {
   priority: "low" | "medium" | "high";
   due_date: string | null;
   category_id: string | null;
+  project_id: string | null;
   visibility: "personal" | "organization";
   organization_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Project {
+  id: string;
+  name: string;
+  description: string | null;
+  company_id: string | null;
+  organization_id: string | null;
+  visibility: "personal" | "organization";
+  assigned_to: string | null;
+  status: string;
+  color: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectDocument {
+  id: string;
+  project_id: string;
+  user_id: string;
+  type: "file" | "document";
+  name: string;
+  content: string | null;
+  file_path: string | null;
+  file_size: number | null;
+  mime_type: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description: string | null;
+  start_time: string;
+  end_time: string;
+  location: string | null;
+  project_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -499,6 +540,204 @@ export async function deleteTask(id: string): Promise<boolean> {
     return false;
   }
   return true;
+}
+
+// ============ PROJECTS ============
+export async function fetchProjects(): Promise<Project[]> {
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .order("updated_at", { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching projects:", error);
+    return [];
+  }
+  return (data || []).map(p => ({
+    ...p,
+    visibility: p.visibility as "personal" | "organization"
+  }));
+}
+
+export async function createProject(project: Omit<Project, "id" | "created_at" | "updated_at">): Promise<Project | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("projects")
+    .insert({ ...project, user_id: user.id })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error creating project:", error);
+    return null;
+  }
+  return data ? { ...data, visibility: data.visibility as "personal" | "organization" } : null;
+}
+
+export async function updateProject(id: string, project: Partial<Project>): Promise<Project | null> {
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ ...project, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error updating project:", error);
+    return null;
+  }
+  return data ? { ...data, visibility: data.visibility as "personal" | "organization" } : null;
+}
+
+export async function deleteProject(id: string): Promise<boolean> {
+  const { error } = await supabase.from("projects").delete().eq("id", id);
+  if (error) {
+    console.error("Error deleting project:", error);
+    return false;
+  }
+  return true;
+}
+
+// ============ PROJECT DOCUMENTS ============
+export async function fetchProjectDocuments(projectId: string): Promise<ProjectDocument[]> {
+  const { data, error } = await supabase
+    .from("project_documents")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching project documents:", error);
+    return [];
+  }
+  return (data || []).map(d => ({
+    ...d,
+    type: d.type as "file" | "document"
+  }));
+}
+
+export async function createProjectDocument(
+  projectId: string, 
+  doc: { name: string; type: "file" | "document"; content?: string; file_path?: string; file_size?: number; mime_type?: string }
+): Promise<ProjectDocument | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("project_documents")
+    .insert({ 
+      project_id: projectId, 
+      user_id: user.id,
+      name: doc.name,
+      type: doc.type,
+      content: doc.content || null,
+      file_path: doc.file_path || null,
+      file_size: doc.file_size || null,
+      mime_type: doc.mime_type || null
+    })
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error creating project document:", error);
+    return null;
+  }
+  return data ? { ...data, type: data.type as "file" | "document" } : null;
+}
+
+export async function updateProjectDocument(id: string, doc: Partial<ProjectDocument>): Promise<ProjectDocument | null> {
+  const { data, error } = await supabase
+    .from("project_documents")
+    .update({ ...doc, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  
+  if (error) {
+    console.error("Error updating project document:", error);
+    return null;
+  }
+  return data ? { ...data, type: data.type as "file" | "document" } : null;
+}
+
+export async function deleteProjectDocument(id: string): Promise<boolean> {
+  const { error } = await supabase.from("project_documents").delete().eq("id", id);
+  if (error) {
+    console.error("Error deleting project document:", error);
+    return false;
+  }
+  return true;
+}
+
+export async function uploadProjectFile(projectId: string, file: File): Promise<ProjectDocument | null> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const filePath = `${user.id}/${projectId}/${Date.now()}_${file.name}`;
+  
+  const { error: uploadError } = await supabase.storage
+    .from("project-files")
+    .upload(filePath, file);
+  
+  if (uploadError) {
+    console.error("Error uploading file:", uploadError);
+    return null;
+  }
+
+  return createProjectDocument(projectId, {
+    name: file.name,
+    type: "file",
+    file_path: filePath,
+    file_size: file.size,
+    mime_type: file.type
+  });
+}
+
+export async function downloadProjectFile(filePath: string): Promise<string | null> {
+  const { data, error } = await supabase.storage
+    .from("project-files")
+    .createSignedUrl(filePath, 3600); // 1 hour expiry
+  
+  if (error) {
+    console.error("Error creating download URL:", error);
+    return null;
+  }
+  return data.signedUrl;
+}
+
+// ============ PROJECT RELATED ITEMS ============
+export async function fetchProjectTasks(projectId: string): Promise<Task[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false });
+  
+  if (error) {
+    console.error("Error fetching project tasks:", error);
+    return [];
+  }
+  return (data || []).map(t => ({
+    ...t,
+    priority: t.priority as "low" | "medium" | "high",
+    visibility: t.visibility as "personal" | "organization"
+  }));
+}
+
+export async function fetchProjectCalendarEvents(projectId: string): Promise<CalendarEvent[]> {
+  const { data, error } = await supabase
+    .from("calendar_events")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("start_time", { ascending: true });
+  
+  if (error) {
+    console.error("Error fetching project calendar events:", error);
+    return [];
+  }
+  return data || [];
 }
 
 // ============ AI CHAT (Streaming) ============
