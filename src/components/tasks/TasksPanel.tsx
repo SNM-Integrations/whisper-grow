@@ -20,14 +20,16 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Calendar, Building2 } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchTasks,
   createTask,
   updateTask,
   deleteTask,
+  fetchProjects,
   type Task,
+  type Project,
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -37,6 +39,7 @@ import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganizatio
 export function TasksPanel() {
   const { currentOrg, context } = useOrganization();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -49,15 +52,20 @@ export function TasksPanel() {
   const [dueDate, setDueDate] = useState("");
   const [visibility, setVisibility] = useState<ResourceVisibility>("personal");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   useEffect(() => {
-    loadTasks();
+    loadData();
   }, []);
 
-  const loadTasks = async () => {
+  const loadData = async () => {
     setLoading(true);
-    const data = await fetchTasks();
-    setTasks(data);
+    const [tasksData, projectsData] = await Promise.all([
+      fetchTasks(),
+      fetchProjects()
+    ]);
+    setTasks(tasksData);
+    setProjects(projectsData);
     setLoading(false);
   };
 
@@ -68,6 +76,7 @@ export function TasksPanel() {
     setDueDate("");
     setVisibility(context.mode === "organization" && currentOrg ? "organization" : "personal");
     setOrganizationId(context.mode === "organization" && currentOrg ? currentOrg.id : null);
+    setProjectId(null);
     setEditingTask(null);
   };
 
@@ -80,6 +89,7 @@ export function TasksPanel() {
       setDueDate(task.due_date ? task.due_date.split("T")[0] : "");
       setVisibility(task.visibility);
       setOrganizationId(task.organization_id);
+      setProjectId(task.project_id);
     } else {
       resetForm();
     }
@@ -100,14 +110,14 @@ export function TasksPanel() {
       completed: editingTask?.completed || false,
       visibility,
       organization_id: organizationId,
-      project_id: null,
+      project_id: projectId,
     };
 
     if (editingTask) {
       const updated = await updateTask(editingTask.id, taskData);
       if (updated) {
         toast.success("Task updated");
-        loadTasks();
+        loadData();
       } else {
         toast.error("Failed to update task");
       }
@@ -115,7 +125,7 @@ export function TasksPanel() {
       const created = await createTask(taskData);
       if (created) {
         toast.success("Task created");
-        loadTasks();
+        loadData();
       } else {
         toast.error("Failed to create task");
       }
@@ -248,6 +258,35 @@ export function TasksPanel() {
                   setOrganizationId(orgId);
                 }}
               />
+
+              {/* Project Selector */}
+              <div className="space-y-2">
+                <Label>Project</Label>
+                <Select 
+                  value={projectId || "none"} 
+                  onValueChange={(v) => setProjectId(v === "none" ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No project" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No project</span>
+                    </SelectItem>
+                    {projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: project.color || '#3B82F6' }} 
+                          />
+                          {project.name}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -313,6 +352,12 @@ export function TasksPanel() {
                       <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 gap-1">
                         <Building2 className="h-3 w-3" />
                         Shared
+                      </Badge>
+                    )}
+                    {task.project_id && (
+                      <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20 gap-1">
+                        <FolderOpen className="h-3 w-3" />
+                        {projects.find(p => p.id === task.project_id)?.name || "Project"}
                       </Badge>
                     )}
                   </div>

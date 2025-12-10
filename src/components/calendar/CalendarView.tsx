@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, eachHourOfInterval, addDays, isSameDay, isSameMonth, startOfDay, endOfDay } from "date-fns";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useEffect } from "react";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, isSameDay, isSameMonth } from "date-fns";
+import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { CalendarEventDialog } from "./CalendarEventDialog";
+import { supabase } from "@/integrations/supabase/client";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -11,17 +13,40 @@ interface CalendarEvent {
   title: string;
   start_time: string;
   end_time: string;
-  description?: string;
+  description?: string | null;
+  location?: string | null;
+  project_id?: string | null;
+  visibility: "personal" | "organization";
+  organization_id: string | null;
 }
 
-interface CalendarViewProps {
-  events?: CalendarEvent[];
-  onEventClick?: (event: CalendarEvent) => void;
-}
-
-export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
+export function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("week");
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+
+  useEffect(() => {
+    loadEvents();
+  }, []);
+
+  const loadEvents = async () => {
+    const { data, error } = await supabase
+      .from("calendar_events")
+      .select("*")
+      .order("start_time", { ascending: true });
+
+    if (error) {
+      console.error("Error fetching events:", error);
+      return;
+    }
+    setEvents((data || []).map(e => ({
+      ...e,
+      visibility: e.visibility as "personal" | "organization"
+    })));
+  };
 
   const navigatePrev = () => {
     if (viewMode === "day") {
@@ -78,6 +103,18 @@ export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
     }
   };
 
+  const handleEventClick = (event: CalendarEvent) => {
+    setSelectedEvent(event);
+    setSelectedDate(undefined);
+    setDialogOpen(true);
+  };
+
+  const handleAddEvent = (date?: Date) => {
+    setSelectedEvent(null);
+    setSelectedDate(date || currentDate);
+    setDialogOpen(true);
+  };
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -94,18 +131,24 @@ export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
           </Button>
           <h2 className="text-lg font-semibold ml-2">{getHeaderText()}</h2>
         </div>
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {(["day", "week", "month"] as ViewMode[]).map((mode) => (
-            <Button
-              key={mode}
-              variant={viewMode === mode ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => setViewMode(mode)}
-              className="capitalize"
-            >
-              {mode}
-            </Button>
-          ))}
+        <div className="flex items-center gap-2">
+          <Button onClick={() => handleAddEvent()} size="sm" className="gap-1">
+            <Plus className="h-4 w-4" />
+            Add Event
+          </Button>
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            {(["day", "week", "month"] as ViewMode[]).map((mode) => (
+              <Button
+                key={mode}
+                variant={viewMode === mode ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode(mode)}
+                className="capitalize"
+              >
+                {mode}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -117,7 +160,7 @@ export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
             hours={hours}
             events={getEventsForDay(currentDate)}
             getEventPosition={getEventPosition}
-            onEventClick={onEventClick}
+            onEventClick={handleEventClick}
           />
         )}
         {viewMode === "week" && (
@@ -126,14 +169,14 @@ export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
             hours={hours}
             getEventsForDay={getEventsForDay}
             getEventPosition={getEventPosition}
-            onEventClick={onEventClick}
+            onEventClick={handleEventClick}
           />
         )}
         {viewMode === "month" && (
           <MonthView
             currentDate={currentDate}
             getEventsForDay={getEventsForDay}
-            onEventClick={onEventClick}
+            onEventClick={handleEventClick}
             onDayClick={(day) => {
               setCurrentDate(day);
               setViewMode("day");
@@ -141,6 +184,15 @@ export function CalendarView({ events = [], onEventClick }: CalendarViewProps) {
           />
         )}
       </div>
+
+      {/* Event Dialog */}
+      <CalendarEventDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        event={selectedEvent}
+        onSave={loadEvents}
+        defaultDate={selectedDate}
+      />
     </div>
   );
 }
