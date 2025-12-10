@@ -26,6 +26,8 @@ import { Button } from "@/components/ui/button";
 import { Lead } from "./LeadsList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { ResourceVisibility } from "@/hooks/useOrganization";
 
 interface LeadDialogProps {
   open: boolean;
@@ -43,6 +45,10 @@ interface LeadFormData {
 
 export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
 
   const form = useForm<LeadFormData>({
     defaultValues: {
@@ -63,6 +69,10 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         company: lead.company,
         status: lead.status,
       });
+      setOwner({
+        visibility: (lead as any).visibility || "personal",
+        organizationId: (lead as any).organization_id || null,
+      });
     } else {
       form.reset({
         name: "",
@@ -71,6 +81,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         company: "",
         status: "new",
       });
+      setOwner({ visibility: "personal", organizationId: null });
     }
   }, [lead, form]);
 
@@ -91,6 +102,8 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
       company: data.company || null,
       contact_type: "lead" as const,
       tags: [data.status],
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
     };
 
     if (lead) {
@@ -205,6 +218,10 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                   <FormMessage />
                 </FormItem>
               )}
+            />
+            <OwnerSelector
+              value={owner}
+              onChange={setOwner}
             />
             <div className="flex justify-end gap-3 pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>

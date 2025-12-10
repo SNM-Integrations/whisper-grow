@@ -19,8 +19,8 @@ import {
   type Company
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
-import { VisibilitySelector } from "@/components/organization/VisibilitySelector";
-import { useOrganization } from "@/hooks/useOrganization";
+import { OwnerSelector } from "@/components/organization/OwnerSelector";
+import { useOrganization, ResourceVisibility } from "@/hooks/useOrganization";
 import { ProjectDetail } from "./ProjectDetail";
 
 const PROJECT_COLORS = [
@@ -48,9 +48,12 @@ export const ProjectsPanel: React.FC = () => {
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [color, setColor] = useState(PROJECT_COLORS[0]);
   const [status, setStatus] = useState("active");
-  const [visibility, setVisibility] = useState<"personal" | "organization">("personal");
+  const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
+    visibility: "personal",
+    organizationId: null,
+  });
   
-  const { context, currentOrg } = useOrganization();
+  const { organizations } = useOrganization();
 
   useEffect(() => {
     loadData();
@@ -73,7 +76,7 @@ export const ProjectsPanel: React.FC = () => {
     setCompanyId(null);
     setColor(PROJECT_COLORS[0]);
     setStatus("active");
-    setVisibility("personal");
+    setOwner({ visibility: "personal", organizationId: null });
     setEditingProject(null);
   };
 
@@ -84,7 +87,10 @@ export const ProjectsPanel: React.FC = () => {
     setCompanyId(project.company_id);
     setColor(project.color || PROJECT_COLORS[0]);
     setStatus(project.status);
-    setVisibility(project.visibility);
+    setOwner({
+      visibility: project.visibility,
+      organizationId: project.organization_id,
+    });
     setDialogOpen(true);
   };
 
@@ -100,8 +106,8 @@ export const ProjectsPanel: React.FC = () => {
       company_id: companyId,
       color,
       status,
-      visibility,
-      organization_id: visibility === "organization" && currentOrg ? currentOrg.id : null,
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
       assigned_to: null,
     };
 
@@ -262,7 +268,7 @@ export const ProjectsPanel: React.FC = () => {
                 </Select>
               </div>
               
-              <VisibilitySelector value={visibility} onChange={setVisibility} />
+              <OwnerSelector value={owner} onChange={setOwner} />
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => {
