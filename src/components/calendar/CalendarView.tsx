@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, addDays, isSameDay, isSameMonth } from "date-fns";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { CalendarEventDialog } from "./CalendarEventDialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -27,6 +28,8 @@ export function CalendarView() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTime, setSelectedTime] = useState<string | undefined>(undefined);
+  const [syncing, setSyncing] = useState(false);
 
   useEffect(() => {
     loadEvents();
@@ -109,10 +112,60 @@ export function CalendarView() {
     setDialogOpen(true);
   };
 
-  const handleAddEvent = (date?: Date) => {
+  const handleAddEvent = (date?: Date, time?: string) => {
     setSelectedEvent(null);
     setSelectedDate(date || currentDate);
+    setSelectedTime(time);
     setDialogOpen(true);
+  };
+
+  const handleTimeSlotClick = (day: Date, hour: number) => {
+    const time = `${hour.toString().padStart(2, "0")}:00`;
+    handleAddEvent(day, time);
+  };
+
+  const getDateRangeForView = () => {
+    if (viewMode === "day") {
+      return { start: currentDate, end: currentDate };
+    } else if (viewMode === "week") {
+      return {
+        start: startOfWeek(currentDate, { weekStartsOn: 0 }),
+        end: endOfWeek(currentDate, { weekStartsOn: 0 }),
+      };
+    } else {
+      return {
+        start: startOfMonth(currentDate),
+        end: endOfMonth(currentDate),
+      };
+    }
+  };
+
+  const handleSyncCalendar = async () => {
+    setSyncing(true);
+    try {
+      const { start, end } = getDateRangeForView();
+      const afterDate = format(start, "yyyy-MM-dd");
+      const beforeDate = format(end, "yyyy-MM-dd");
+      
+      // Call the n8n workflow to fetch Google Calendar events
+      const { data, error } = await supabase.functions.invoke("sync-google-calendar", {
+        body: {
+          after: afterDate,
+          before: beforeDate,
+          viewMode,
+        },
+      });
+
+      if (error) throw error;
+      
+      toast.success(`Calendar synced for ${viewMode} view`);
+      await loadEvents();
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error("Failed to sync calendar");
+    } finally {
+      setSyncing(false);
+    }
   };
 
   return (
@@ -132,6 +185,16 @@ export function CalendarView() {
           <h2 className="text-lg font-semibold ml-2">{getHeaderText()}</h2>
         </div>
         <div className="flex items-center gap-2">
+          <Button 
+            onClick={handleSyncCalendar} 
+            size="sm" 
+            variant="outline" 
+            className="gap-1"
+            disabled={syncing}
+          >
+            <RefreshCw className={cn("h-4 w-4", syncing && "animate-spin")} />
+            {syncing ? "Syncing..." : "Sync"}
+          </Button>
           <Button onClick={() => handleAddEvent()} size="sm" className="gap-1">
             <Plus className="h-4 w-4" />
             Add Event
@@ -161,6 +224,7 @@ export function CalendarView() {
             events={getEventsForDay(currentDate)}
             getEventPosition={getEventPosition}
             onEventClick={handleEventClick}
+            onTimeSlotClick={(hour) => handleTimeSlotClick(currentDate, hour)}
           />
         )}
         {viewMode === "week" && (
@@ -170,6 +234,7 @@ export function CalendarView() {
             getEventsForDay={getEventsForDay}
             getEventPosition={getEventPosition}
             onEventClick={handleEventClick}
+            onTimeSlotClick={handleTimeSlotClick}
           />
         )}
         {viewMode === "month" && (
@@ -192,6 +257,7 @@ export function CalendarView() {
         event={selectedEvent}
         onSave={loadEvents}
         defaultDate={selectedDate}
+        defaultTime={selectedTime}
       />
     </div>
   );
@@ -203,9 +269,10 @@ interface DayViewProps {
   events: CalendarEvent[];
   getEventPosition: (event: CalendarEvent) => { top: string; height: string };
   onEventClick?: (event: CalendarEvent) => void;
+  onTimeSlotClick?: (hour: number) => void;
 }
 
-function DayView({ date, hours, events, getEventPosition, onEventClick }: DayViewProps) {
+function DayView({ date, hours, events, getEventPosition, onEventClick, onTimeSlotClick }: DayViewProps) {
   return (
     <div className="flex">
       {/* Time column */}
@@ -219,7 +286,11 @@ function DayView({ date, hours, events, getEventPosition, onEventClick }: DayVie
       {/* Events column */}
       <div className="flex-1 relative">
         {hours.map((hour) => (
-          <div key={hour} className="h-[60px] border-b border-border/50" />
+          <div 
+            key={hour} 
+            className="h-[60px] border-b border-border/50 cursor-pointer hover:bg-primary/5 transition-colors"
+            onClick={() => onTimeSlotClick?.(hour)}
+          />
         ))}
         {/* Events overlay */}
         <div className="absolute inset-0 pointer-events-none">
@@ -251,9 +322,10 @@ interface WeekViewProps {
   getEventsForDay: (day: Date) => CalendarEvent[];
   getEventPosition: (event: CalendarEvent) => { top: string; height: string };
   onEventClick?: (event: CalendarEvent) => void;
+  onTimeSlotClick?: (day: Date, hour: number) => void;
 }
 
-function WeekView({ currentDate, hours, getEventsForDay, getEventPosition, onEventClick }: WeekViewProps) {
+function WeekView({ currentDate, hours, getEventsForDay, getEventPosition, onEventClick, onTimeSlotClick }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { weekStartsOn: 0 });
   const weekDays = eachDayOfInterval({
     start: weekStart,
@@ -305,7 +377,11 @@ function WeekView({ currentDate, hours, getEventsForDay, getEventPosition, onEve
               )}
             >
               {hours.map((hour) => (
-                <div key={hour} className="h-[60px] border-b border-border/50" />
+                <div 
+                  key={hour} 
+                  className="h-[60px] border-b border-border/50 cursor-pointer hover:bg-primary/10 transition-colors"
+                  onClick={() => onTimeSlotClick?.(day, hour)}
+                />
               ))}
               {/* Events overlay */}
               <div className="absolute inset-0 pointer-events-none">
