@@ -20,7 +20,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Calendar, Building2, FolderOpen } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2, FolderOpen, User } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchTasks,
@@ -28,8 +28,10 @@ import {
   updateTask,
   deleteTask,
   fetchProjects,
+  fetchContacts,
   type Task,
   type Project,
+  type Contact,
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
@@ -40,6 +42,7 @@ export function TasksPanel() {
   const { currentOrg, context } = useOrganization();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -53,6 +56,7 @@ export function TasksPanel() {
   const [visibility, setVisibility] = useState<ResourceVisibility>("personal");
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [assignedTo, setAssignedTo] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -60,12 +64,15 @@ export function TasksPanel() {
 
   const loadData = async () => {
     setLoading(true);
-    const [tasksData, projectsData] = await Promise.all([
+    const [tasksData, projectsData, contactsData] = await Promise.all([
       fetchTasks(),
-      fetchProjects()
+      fetchProjects(),
+      fetchContacts()
     ]);
     setTasks(tasksData);
     setProjects(projectsData);
+    // Filter to only show contacts (not leads) as responsible parties
+    setContacts(contactsData.filter(c => c.contact_type === "contact"));
     setLoading(false);
   };
 
@@ -77,6 +84,7 @@ export function TasksPanel() {
     setVisibility(context.mode === "organization" && currentOrg ? "organization" : "personal");
     setOrganizationId(context.mode === "organization" && currentOrg ? currentOrg.id : null);
     setProjectId(null);
+    setAssignedTo(null);
     setEditingTask(null);
   };
 
@@ -90,6 +98,7 @@ export function TasksPanel() {
       setVisibility(task.visibility);
       setOrganizationId(task.organization_id);
       setProjectId(task.project_id);
+      setAssignedTo(task.assigned_to);
     } else {
       resetForm();
     }
@@ -111,6 +120,7 @@ export function TasksPanel() {
       visibility,
       organization_id: organizationId,
       project_id: projectId,
+      assigned_to: assignedTo,
     };
 
     if (editingTask) {
@@ -287,6 +297,35 @@ export function TasksPanel() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Responsible Party Selector */}
+              <div className="space-y-2">
+                <Label>Responsible Party</Label>
+                <Select 
+                  value={assignedTo || "none"} 
+                  onValueChange={(v) => setAssignedTo(v === "none" ? null : v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="No one assigned" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      <span className="text-muted-foreground">No one assigned</span>
+                    </SelectItem>
+                    {contacts.map((contact) => (
+                      <SelectItem key={contact.id} value={contact.id}>
+                        <div className="flex items-center gap-2">
+                          <User className="h-3 w-3 text-muted-foreground" />
+                          {contact.name}
+                          {contact.company && (
+                            <span className="text-muted-foreground text-xs">({contact.company})</span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -358,6 +397,12 @@ export function TasksPanel() {
                       <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20 gap-1">
                         <FolderOpen className="h-3 w-3" />
                         {projects.find(p => p.id === task.project_id)?.name || "Project"}
+                      </Badge>
+                    )}
+                    {task.assigned_to && (
+                      <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1">
+                        <User className="h-3 w-3" />
+                        {contacts.find(c => c.id === task.assigned_to)?.name || "Assigned"}
                       </Badge>
                     )}
                   </div>

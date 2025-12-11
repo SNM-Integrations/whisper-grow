@@ -35,6 +35,7 @@ export interface Contact {
   role: string | null;
   notes: string | null;
   tags: string[];
+  contact_type: "contact" | "lead";
   created_at: string;
   updated_at: string;
 }
@@ -80,6 +81,7 @@ export interface Task {
   due_date: string | null;
   category_id: string | null;
   project_id: string | null;
+  assigned_to: string | null;
   visibility: "personal" | "organization";
   organization_id: string | null;
   created_at: string;
