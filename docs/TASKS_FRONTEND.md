@@ -1,15 +1,28 @@
 # Frontend Tasks (Lovable)
 
 > Owner: Lovable
-> Last updated: 2025-12-08
+> Last updated: 2025-12-12
 
-## STATUS: Organization System Complete ✅
+## STATUS: Full-Featured Second Brain ✅
 
-The frontend has full organization/workspace support with role-based access control and resource sharing.
+The frontend is a complete productivity platform with chat, CRM, projects, calendar, tasks, and notes.
 
 ---
 
 ## Completed Features
+
+### v0.8.0 - Projects, Calendar Sync & Task Delegation
+- [x] Projects module with list/detail views
+- [x] Project documents (rich text and file uploads)
+- [x] Link tasks and calendar events to projects
+- [x] Inline task/event creation from project detail
+- [x] Click-to-create events on calendar time slots
+- [x] "Refresh Calendar" syncs from Google Calendar via n8n
+- [x] Task "Responsible Party" field for CRM contact assignment
+- [x] OwnerSelector workflow for unified ownership selection
+- [x] CRM type distinctions (Contact/Lead, Client/Company Lead)
+- [x] n8n MCP integration (email, calendar, web search)
+- [x] RLS fix for organization member cross-access
 
 ### v0.7.0 - Organization Polish
 - [x] Pending invitations UI (accept/decline)
@@ -35,41 +48,27 @@ The frontend has full organization/workspace support with role-based access cont
 
 ## To Do
 
-### Priority 1: Extend Visibility to All Resources
-
-Currently only Tasks have full visibility support. Need to add to:
-
-1. **Calendar Events**
-   - Add VisibilitySelector to CalendarEventDialog
-   - Show shared indicator on events
-
-2. **Notes**
-   - Add VisibilitySelector to NoteEditor
-   - Show shared indicator in NotesPanel
-
-3. **CRM (Contacts, Companies, Deals)**
-   - Add VisibilitySelector to all CRM dialogs
-   - Show shared indicators in lists
-
-### Priority 2: AI Tool Enhancements
-
-1. **Add visibility to AI tools**
-   - `create_task` should accept visibility parameter
-   - `create_calendar_event` should accept visibility parameter
-   - Allow AI to create org-shared resources
-
-2. **Add search/query tools**
-   - `search_contacts` - Find contacts by name/company
-   - `search_deals` - Find deals by stage/value
-   - `get_contacts` - List contacts
-
-### Priority 3: Polish
+### Priority 1: Polish & UX
 
 - [ ] Markdown rendering in AI responses
 - [ ] Typing indicator in chat
 - [ ] Copy button on AI messages
 - [ ] Mobile responsive improvements
+- [ ] Dark theme refinement
+
+### Priority 2: Dynamic CRM Fields (Planned)
+
+- [ ] Add `custom_fields JSONB` to contacts and companies tables
+- [ ] AI tools to update custom fields dynamically
+- [ ] Render custom fields on CRM cards
+- [ ] Manual add/edit custom fields in dialogs
+
+### Priority 3: Integrations
+
 - [ ] Email notifications for invitations (needs Resend API)
+- [ ] Push calendar events to Google Calendar via n8n
+- [ ] File browser integration
+- [ ] Activity logs / audit trail
 
 ---
 
@@ -105,14 +104,19 @@ Currently only Tasks have full visibility support. Need to add to:
 
 | Table | Status | Notes |
 |-------|--------|-------|
-| `notes` | ✅ Pre-existing | Has RLS |
-| `tasks` | ✅ Pre-existing | Has RLS |
-| `calendar_events` | ✅ Pre-existing | Has RLS |
+| `notes` | ✅ Pre-existing | Has RLS, org visibility |
+| `tasks` | ✅ Pre-existing | Has RLS, org visibility, assigned_to |
+| `calendar_events` | ✅ Pre-existing | Has RLS, org visibility, project_id |
 | `conversations` | ✅ Created in v0.5.0 | For chat history |
 | `messages` | ✅ Created in v0.5.0 | For chat messages |
-| `contacts` | ✅ Created in v0.5.0 | CRM contacts |
-| `companies` | ✅ Created in v0.5.0 | CRM companies |
-| `deals` | ✅ Created in v0.5.0 | CRM deals |
+| `contacts` | ✅ Created in v0.5.0 | CRM contacts, contact_type enum |
+| `companies` | ✅ Created in v0.5.0 | CRM companies, company_type enum |
+| `deals` | ✅ Created in v0.5.0 | CRM deals with pipeline stages |
+| `projects` | ✅ Created in v0.8.0 | Project management |
+| `project_documents` | ✅ Created in v0.8.0 | Documents within projects |
+| `organizations` | ✅ Created in v0.6.0 | Multi-tenant orgs |
+| `organization_members` | ✅ Created in v0.6.0 | Org membership with roles |
+| `organization_invitations` | ✅ Created in v0.6.0 | Pending invitations |
 
 ---
 
@@ -120,15 +124,14 @@ Currently only Tasks have full visibility support. Need to add to:
 
 | Function | Purpose | Auth |
 |----------|---------|------|
-| `chat` | AI streaming chat via Lovable AI | JWT required |
+| `chat` | AI streaming chat with tool calling | JWT required |
+| `sync-google-calendar` | Sync events from Google Calendar via n8n | JWT required |
 
 ---
 
 ## API Layer
 
-**OLD (localhost):** `src/lib/api.ts` - DO NOT USE
-
-**NEW (cloud):** `src/lib/supabase-api.ts` - USE THIS
+**Cloud API:** `src/lib/supabase-api.ts`
 
 Functions available:
 - Notes: `fetchNotes()`, `createNote()`, `updateNote()`, `deleteNote()`
@@ -137,4 +140,16 @@ Functions available:
 - Contacts: `fetchContacts()`, `createContact()`, `updateContact()`, `deleteContact()`
 - Companies: `fetchCompanies()`, `createCompany()`, `updateCompany()`, `deleteCompany()`
 - Deals: `fetchDeals()`, `createDeal()`, `updateDeal()`, `deleteDeal()`
-- Chat: `streamChat()` - streaming AI responses
+- Projects: `fetchProjects()`, `createProject()`, `updateProject()`, `deleteProject()`
+- Chat: `streamChat()` - streaming AI responses with tool calling
+
+---
+
+## External Integrations
+
+### n8n MCP Connection
+- Gmail: `send_email`
+- Google Calendar: `get_google_calendar_events`, `check_availability`, `book_meeting`
+- Web Search: `search`
+
+Connected via Lovable MCP integration for AI tool calling.

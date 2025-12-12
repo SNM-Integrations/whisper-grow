@@ -4,6 +4,68 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## [0.8.0] - 2025-12-12
+
+### Projects, Calendar Sync & Task Delegation (Lovable)
+
+**What happened:** Major feature additions including Projects module, Google Calendar sync, and task responsibility assignment.
+
+### Added
+
+#### Projects Module
+- `src/components/projects/ProjectsPanel.tsx` - List view of all projects
+- `src/components/projects/ProjectDetail.tsx` - Individual project view with linked resources
+- `src/components/projects/RichTextEditor.tsx` - Rich text editing for project documents
+- Projects can be linked to companies
+- Tasks and calendar events can be linked to projects via `project_id`
+- Documents can be stored within projects (files or rich text)
+- Inline task/event creation from within project detail view
+
+#### Calendar Improvements
+- Click-to-create events on time slots in Day/Week view (Google Calendar style)
+- `CalendarEventDialog` component for creating/editing events
+- "Refresh Calendar" button syncs from Google Calendar based on current view (day/week/month)
+- `supabase/functions/sync-google-calendar/index.ts` - Edge function for calendar sync via n8n
+
+#### Task Delegation
+- Tasks now have "Responsible Party" field (`assigned_to`)
+- Can assign CRM contacts (type "contact") as responsible for tasks
+- Shows user badge on task list items for assigned contacts
+
+#### Owner Selector Workflow
+- `src/components/organization/OwnerSelector.tsx` - Unified owner selection across all resources
+- Replaces VisibilitySelector in creation dialogs
+- Allows selecting personal, organization, or other account ownership at creation time
+- Applied to: Tasks, Calendar Events, Deals, Contacts, Companies, Projects
+
+#### CRM Enhancements
+- Contact types: "contact" (partners, friends) vs "lead" (sales leads)
+- Company types: "lead" vs "client"
+- `src/components/crm/LeadDialog.tsx` and `src/components/crm/ClientDialog.tsx`
+- `src/components/crm/LeadsList.tsx` and `src/components/crm/ClientsList.tsx`
+
+#### AI Tool Integration (n8n MCP)
+- Connected to n8n MCP for external integrations
+- Tools: `send_email`, `get_google_calendar_events`, `check_availability`, `book_meeting`, `web_search`
+- `callN8nWorkflow` helper in chat edge function
+
+### Fixed
+
+#### RLS Organization Visibility
+- Organization members can now view resources with `visibility = 'organization'`
+- Updated SELECT/UPDATE/DELETE policies across all resource tables
+- Fixes cross-member access for shared resources
+
+### Updated Files
+- `src/components/tasks/TasksPanel.tsx` - Added responsible party selector, project selector
+- `src/components/calendar/CalendarView.tsx` - Added click-to-create, refresh sync
+- `src/components/calendar/CalendarEventDialog.tsx` - New component for event creation
+- `src/lib/supabase-api.ts` - Added Task.assigned_to, Contact.contact_type, project APIs
+- `supabase/functions/chat/index.ts` - Added n8n tool integration
+- `src/pages/CRM.tsx` - Restructured with Contacts/Leads/Companies/Clients/Deals tabs
+
+---
+
 ## [0.7.0] - 2025-12-08
 
 ### Organization Polish & Resource Sharing (Lovable)
