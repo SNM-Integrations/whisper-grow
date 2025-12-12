@@ -2,10 +2,11 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, FileText, Search, ArrowLeft, Trash2 } from "lucide-react";
+import { Plus, FileText, Search, Trash2, FolderSync } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { fetchNotes, deleteNote, type Note } from "@/lib/supabase-api";
 import NoteEditor from "./NoteEditor";
+import GoogleDriveNotesSync from "./GoogleDriveNotesSync";
 
 interface NotesPanelProps {
   onClose?: () => void;
@@ -86,10 +87,13 @@ const NotesPanel: React.FC<NotesPanelProps> = ({ onClose }) => {
             <FileText className="h-4 w-4" />
             Notes
           </h2>
-          <Button size="sm" onClick={() => setIsCreating(true)}>
-            <Plus className="h-4 w-4 mr-1" />
-            New
-          </Button>
+          <div className="flex items-center gap-2">
+            <GoogleDriveNotesSync onSyncComplete={loadNotes} />
+            <Button size="sm" onClick={() => setIsCreating(true)}>
+              <Plus className="h-4 w-4 mr-1" />
+              New
+            </Button>
+          </div>
         </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
