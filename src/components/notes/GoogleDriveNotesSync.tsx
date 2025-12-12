@@ -28,6 +28,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
   const [isOpen, setIsOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [folders, setFolders] = useState<DriveFolder[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
@@ -37,6 +38,15 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
   useEffect(() => {
     checkGoogleAuth();
     loadLinkedFolder();
+    
+    // Check for OAuth success callback
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get("google_auth") === "success") {
+      toast.success("Google Drive connected successfully!");
+      setHasGoogleAuth(true);
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
   }, []);
 
   const loadLinkedFolder = () => {
@@ -59,15 +69,43 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
     setHasGoogleAuth(!!data);
   };
 
+  const connectGoogle = async () => {
+    setIsConnecting(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-oauth", {
+        method: "POST",
+        body: {},
+      });
+
+      if (error) throw error;
+
+      if (data?.authUrl) {
+        // Redirect to Google OAuth
+        window.location.href = data.authUrl;
+      }
+    } catch (error: any) {
+      console.error("Failed to start OAuth:", error);
+      toast.error("Failed to connect Google: " + error.message);
+      setIsConnecting(false);
+    }
+  };
+
   const loadFolders = async (folderId: string | null = null) => {
     setIsLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("google-drive", {
-        body: { action: "listFolders", folderId },
+        body: { action: "list-folders", parentId: folderId },
       });
 
       if (error) throw error;
-      setFolders(data.folders || []);
+      
+      if (data?.needsAuth) {
+        setHasGoogleAuth(false);
+        toast.error("Please connect Google Drive first");
+        return;
+      }
+      
+      setFolders(data?.data || []);
       setCurrentFolderId(folderId);
     } catch (error: any) {
       toast.error("Failed to load folders: " + error.message);
@@ -114,12 +152,18 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
 
       // Get files from Drive folder
       const { data: filesData, error: filesError } = await supabase.functions.invoke("google-drive", {
-        body: { action: "listFiles", folderId: linkedFolder.id },
+        body: { action: "list-files", folderId: linkedFolder.id },
       });
 
       if (filesError) throw filesError;
+      
+      if (filesData?.needsAuth) {
+        setHasGoogleAuth(false);
+        toast.error("Please reconnect Google Drive");
+        return;
+      }
 
-      const files = filesData.files || [];
+      const files = filesData?.data || [];
       let synced = 0;
 
       for (const file of files) {
@@ -130,7 +174,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
 
         // Download file content
         const { data: downloadData, error: downloadError } = await supabase.functions.invoke("google-drive", {
-          body: { action: "downloadFile", fileId: file.id, mimeType: file.mimeType },
+          body: { action: "download", fileId: file.id, mimeType: file.mimeType },
         });
 
         if (downloadError) {
@@ -138,7 +182,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
           continue;
         }
 
-        const content = `# ${file.name}\n\n${downloadData.content || ""}`;
+        const content = `# ${file.name}\n\n${downloadData?.data?.content || ""}`;
 
         // Check if note already exists (by searching for title in first line)
         const { data: existingNotes } = await supabase
@@ -176,8 +220,17 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
 
   if (!hasGoogleAuth) {
     return (
-      <Button variant="outline" size="sm" disabled>
-        <FolderSync className="h-4 w-4 mr-1" />
+      <Button 
+        variant="outline" 
+        size="sm" 
+        onClick={connectGoogle}
+        disabled={isConnecting}
+      >
+        {isConnecting ? (
+          <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+        ) : (
+          <FolderSync className="h-4 w-4 mr-1" />
+        )}
         Connect Google
       </Button>
     );
