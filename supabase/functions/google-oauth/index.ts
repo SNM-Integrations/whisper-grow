@@ -35,6 +35,7 @@ Deno.serve(async (req) => {
       }
 
       console.log("OAuth callback received, exchanging code for tokens...");
+      console.log("Using redirect_uri:", `${SUPABASE_URL}/functions/v1/google-oauth`);
 
       // Exchange code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -130,6 +131,8 @@ Deno.serve(async (req) => {
       authUrl.searchParams.set("state", user.id); // Pass user_id in state
 
       console.log("Generated auth URL for user:", user.id);
+      console.log("Auth URL redirect_uri:", `${SUPABASE_URL}/functions/v1/google-oauth`);
+      console.log("Full auth URL:", authUrl.toString());
 
       return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
