@@ -34,6 +34,7 @@ import {
 } from "@/lib/supabase-api";
 import { cn } from "@/lib/utils";
 import { RichTextEditor } from "./RichTextEditor";
+import { GoogleDriveSync } from "./GoogleDriveSync";
 import { format } from "date-fns";
 import { OwnerSelector } from "@/components/organization/OwnerSelector";
 import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganization";
@@ -350,6 +351,20 @@ export const ProjectDetail: React.FC<ProjectDetailProps> = ({ project, onBack, o
             <p className="text-sm text-muted-foreground">{project.description}</p>
           )}
         </div>
+        <GoogleDriveSync
+          projectId={project.id}
+          driveFolderId={project.drive_folder_id}
+          driveFolderName={project.drive_folder_name}
+          driveLastSyncedAt={project.drive_last_synced_at}
+          onFolderLinked={(folderId, folderName) => {
+            onUpdate({
+              ...project,
+              drive_folder_id: folderId || null,
+              drive_folder_name: folderName || null,
+            });
+          }}
+          onSyncComplete={loadData}
+        />
       </div>
 
       {/* Tabs */}

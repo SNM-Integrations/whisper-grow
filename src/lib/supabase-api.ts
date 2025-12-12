@@ -98,6 +98,9 @@ export interface Project {
   assigned_to: string | null;
   status: string;
   color: string | null;
+  drive_folder_id: string | null;
+  drive_folder_name: string | null;
+  drive_last_synced_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -561,7 +564,7 @@ export async function fetchProjects(): Promise<Project[]> {
   }));
 }
 
-export async function createProject(project: Omit<Project, "id" | "created_at" | "updated_at">): Promise<Project | null> {
+export async function createProject(project: Omit<Project, "id" | "created_at" | "updated_at" | "drive_folder_id" | "drive_folder_name" | "drive_last_synced_at">): Promise<Project | null> {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return null;
 
