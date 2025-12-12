@@ -754,6 +754,7 @@ export type Database = {
         Row: {
           content: string | null
           created_at: string
+          drive_file_id: string | null
           file_path: string | null
           file_size: number | null
           id: string
@@ -767,6 +768,7 @@ export type Database = {
         Insert: {
           content?: string | null
           created_at?: string
+          drive_file_id?: string | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -780,6 +782,7 @@ export type Database = {
         Update: {
           content?: string | null
           created_at?: string
+          drive_file_id?: string | null
           file_path?: string | null
           file_size?: number | null
           id?: string
@@ -807,6 +810,9 @@ export type Database = {
           company_id: string | null
           created_at: string
           description: string | null
+          drive_folder_id: string | null
+          drive_folder_name: string | null
+          drive_last_synced_at: string | null
           id: string
           name: string
           organization_id: string | null
@@ -821,6 +827,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_last_synced_at?: string | null
           id?: string
           name: string
           organization_id?: string | null
@@ -835,6 +844,9 @@ export type Database = {
           company_id?: string | null
           created_at?: string
           description?: string | null
+          drive_folder_id?: string | null
+          drive_folder_name?: string | null
+          drive_last_synced_at?: string | null
           id?: string
           name?: string
           organization_id?: string | null
