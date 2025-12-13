@@ -2,8 +2,9 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ArrowLeft, Server, Brain, Database, Building2 } from "lucide-react";
+import { ArrowLeft, Server, Brain, Database, Building2, Plug } from "lucide-react";
 import { OrganizationSettings } from "@/components/organization/OrganizationSettings";
+import { IntegrationSettings } from "@/components/settings/IntegrationSettings";
 import { useAuth } from "@/hooks/useAuth";
 import { AuthForm } from "@/components/auth/AuthForm";
 
@@ -50,6 +51,10 @@ const Settings = () => {
         <Tabs defaultValue="general" className="space-y-6">
           <TabsList>
             <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="integrations" className="gap-2">
+              <Plug className="h-4 w-4" />
+              Integrations
+            </TabsTrigger>
             <TabsTrigger value="organization" className="gap-2">
               <Building2 className="h-4 w-4" />
               Organization
@@ -130,6 +135,10 @@ const Settings = () => {
                 </div>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="integrations">
+            <IntegrationSettings />
           </TabsContent>
 
           <TabsContent value="organization">
