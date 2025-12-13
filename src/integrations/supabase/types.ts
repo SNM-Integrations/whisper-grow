@@ -910,6 +910,71 @@ export type Database = {
           },
         ]
       }
+      slack_conversations: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          id: string
+          slack_channel_id: string
+          slack_thread_ts: string | null
+          slack_workspace_id: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          id?: string
+          slack_channel_id: string
+          slack_thread_ts?: string | null
+          slack_workspace_id: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          slack_channel_id?: string
+          slack_thread_ts?: string | null
+          slack_workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slack_conversations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      slack_user_mappings: {
+        Row: {
+          created_at: string
+          id: string
+          slack_user_id: string
+          slack_username: string | null
+          slack_workspace_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          slack_user_id: string
+          slack_username?: string | null
+          slack_workspace_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          slack_user_id?: string
+          slack_username?: string | null
+          slack_workspace_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       tasks: {
         Row: {
           assigned_to: string | null

@@ -18,6 +18,10 @@ interface IntegrationConfig {
   n8n?: {
     mcp_url?: string;
   };
+  slack?: {
+    bot_token?: string;
+    signing_secret?: string;
+  };
 }
 
 export const IntegrationSettings = () => {
@@ -35,6 +39,10 @@ export const IntegrationSettings = () => {
   
   // n8n settings
   const [n8nMcpUrl, setN8nMcpUrl] = useState("");
+
+  // Slack settings
+  const [slackBotToken, setSlackBotToken] = useState("");
+  const [slackSigningSecret, setSlackSigningSecret] = useState("");
 
   const isOrgContext = context.mode === "organization" && currentOrg;
   const contextLabel = isOrgContext ? currentOrg.name : "Personal";
@@ -74,6 +82,9 @@ export const IntegrationSettings = () => {
           setGoogleClientSecret((settingsData?.client_secret as string) || "");
         } else if (setting.integration_type === "n8n") {
           setN8nMcpUrl((settingsData?.mcp_url as string) || "");
+        } else if (setting.integration_type === "slack") {
+          setSlackBotToken((settingsData?.bot_token as string) || "");
+          setSlackSigningSecret((settingsData?.signing_secret as string) || "");
         }
       });
     } catch (error) {
@@ -154,6 +165,13 @@ export const IntegrationSettings = () => {
     });
   };
 
+  const handleSaveSlack = () => {
+    saveIntegration("slack", {
+      bot_token: slackBotToken,
+      signing_secret: slackSigningSecret,
+    });
+  };
+
   const toggleShowSecret = (key: string) => {
     setShowSecrets(prev => ({ ...prev, [key]: !prev[key] }));
   };
@@ -179,6 +197,7 @@ export const IntegrationSettings = () => {
         <TabsList>
           <TabsTrigger value="google">Google</TabsTrigger>
           <TabsTrigger value="n8n">n8n</TabsTrigger>
+          <TabsTrigger value="slack">Slack</TabsTrigger>
         </TabsList>
 
         <TabsContent value="google">
@@ -326,6 +345,105 @@ export const IntegrationSettings = () => {
                   <li>Go to Settings → MCP access in your n8n instance</li>
                   <li>Enable MCP access and copy the MCP URL</li>
                   <li>For each workflow, enable "Available in MCP" in workflow settings</li>
+                </ol>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="slack">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">💬</span>
+                Slack Integration
+              </CardTitle>
+              <CardDescription>
+                Connect Slack to interact with your AI assistant from any channel.
+                Create a Slack app at <a 
+                  href="https://api.slack.com/apps" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary underline"
+                >
+                  api.slack.com/apps
+                </a>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="slack-bot-token">Bot User OAuth Token</Label>
+                <div className="relative">
+                  <Input
+                    id="slack-bot-token"
+                    type={showSecrets["slack-token"] ? "text" : "password"}
+                    value={slackBotToken}
+                    onChange={(e) => setSlackBotToken(e.target.value)}
+                    placeholder="xoxb-xxxxxxxx-xxxxxxxx"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => toggleShowSecret("slack-token")}
+                  >
+                    {showSecrets["slack-token"] ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="slack-signing-secret">Signing Secret</Label>
+                <div className="relative">
+                  <Input
+                    id="slack-signing-secret"
+                    type={showSecrets["slack-secret"] ? "text" : "password"}
+                    value={slackSigningSecret}
+                    onChange={(e) => setSlackSigningSecret(e.target.value)}
+                    placeholder="xxxxxxxxxxxxxxxxxxxxxxxx"
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full px-3"
+                    onClick={() => toggleShowSecret("slack-secret")}
+                  >
+                    {showSecrets["slack-secret"] ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <Button onClick={handleSaveSlack} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Save Slack Settings
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
+                <p><strong>Setup Instructions:</strong></p>
+                <ol className="list-decimal list-inside ml-2 space-y-1">
+                  <li>Create app at api.slack.com/apps → "From scratch"</li>
+                  <li>Go to OAuth & Permissions → Add scopes: app_mentions:read, channels:history, chat:write, users:read</li>
+                  <li>Enable Event Subscriptions → Request URL: <code className="bg-muted px-1 rounded">https://pccvvqmrwbcdjgkyteqn.supabase.co/functions/v1/slack-webhook</code></li>
+                  <li>Subscribe to bot events: app_mention, message.channels</li>
+                  <li>Install to workspace and copy Bot Token (xoxb-...) and Signing Secret</li>
                 </ol>
               </div>
             </CardContent>
