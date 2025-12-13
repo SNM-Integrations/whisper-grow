@@ -1,6 +1,12 @@
 // Cloud API client using Supabase
 import { supabase } from "@/integrations/supabase/client";
 
+// Context filter for organization-aware queries
+export interface OrgContextFilter {
+  mode: "personal" | "organization";
+  organizationId: string | null;
+}
+
 // Types
 export interface Note {
   id: string;
@@ -320,11 +326,22 @@ export async function saveMessage(conversationId: string, role: "user" | "assist
 }
 
 // ============ CONTACTS ============
-export async function fetchContacts(): Promise<Contact[]> {
-  const { data, error } = await supabase
+export async function fetchContacts(context?: OrgContextFilter): Promise<Contact[]> {
+  let query = supabase
     .from("contacts")
     .select("*")
     .order("name", { ascending: true });
+  
+  // Filter by context
+  if (context) {
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching contacts:", error);
@@ -375,11 +392,22 @@ export async function deleteContact(id: string): Promise<boolean> {
 }
 
 // ============ COMPANIES ============
-export async function fetchCompanies(): Promise<Company[]> {
-  const { data, error } = await supabase
+export async function fetchCompanies(context?: OrgContextFilter): Promise<Company[]> {
+  let query = supabase
     .from("companies")
     .select("*")
     .order("name", { ascending: true });
+  
+  // Filter by context
+  if (context) {
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching companies:", error);
@@ -430,11 +458,22 @@ export async function deleteCompany(id: string): Promise<boolean> {
 }
 
 // ============ DEALS ============
-export async function fetchDeals(): Promise<Deal[]> {
-  const { data, error } = await supabase
+export async function fetchDeals(context?: OrgContextFilter): Promise<Deal[]> {
+  let query = supabase
     .from("deals")
     .select("*")
     .order("created_at", { ascending: false });
+  
+  // Filter by context
+  if (context) {
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching deals:", error);
@@ -485,11 +524,22 @@ export async function deleteDeal(id: string): Promise<boolean> {
 }
 
 // ============ TASKS ============
-export async function fetchTasks(): Promise<Task[]> {
-  const { data, error } = await supabase
+export async function fetchTasks(context?: OrgContextFilter): Promise<Task[]> {
+  let query = supabase
     .from("tasks")
     .select("*")
     .order("created_at", { ascending: false });
+  
+  // Filter by context
+  if (context) {
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching tasks:", error);
@@ -548,11 +598,22 @@ export async function deleteTask(id: string): Promise<boolean> {
 }
 
 // ============ PROJECTS ============
-export async function fetchProjects(): Promise<Project[]> {
-  const { data, error } = await supabase
+export async function fetchProjects(context?: OrgContextFilter): Promise<Project[]> {
+  let query = supabase
     .from("projects")
     .select("*")
     .order("updated_at", { ascending: false });
+  
+  // Filter by context
+  if (context) {
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+  }
+  
+  const { data, error } = await query;
   
   if (error) {
     console.error("Error fetching projects:", error);

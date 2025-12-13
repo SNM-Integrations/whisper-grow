@@ -53,17 +53,17 @@ export const ProjectsPanel: React.FC = () => {
     organizationId: null,
   });
   
-  const { organizations } = useOrganization();
+  const { organizations, context } = useOrganization();
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [context]);
 
   const loadData = async () => {
     setLoading(true);
     const [projectsData, companiesData] = await Promise.all([
-      fetchProjects(),
-      fetchCompanies()
+      fetchProjects(context),
+      fetchCompanies(context)
     ]);
     setProjects(projectsData);
     setCompanies(companiesData);

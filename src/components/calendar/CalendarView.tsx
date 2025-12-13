@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CalendarEventDialog } from "./CalendarEventDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/useOrganization";
 
 type ViewMode = "day" | "week" | "month";
 
@@ -22,6 +23,7 @@ interface CalendarEvent {
 }
 
 export function CalendarView() {
+  const { context } = useOrganization();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -33,13 +35,22 @@ export function CalendarView() {
 
   useEffect(() => {
     loadEvents();
-  }, []);
+  }, [context]);
 
   const loadEvents = async () => {
-    const { data, error } = await supabase
+    let query = supabase
       .from("calendar_events")
       .select("*")
       .order("start_time", { ascending: true });
+
+    // Filter by context
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching events:", error);

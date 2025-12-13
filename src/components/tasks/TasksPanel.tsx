@@ -60,14 +60,14 @@ export function TasksPanel() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [context]);
 
   const loadData = async () => {
     setLoading(true);
     const [tasksData, projectsData, contactsData] = await Promise.all([
-      fetchTasks(),
-      fetchProjects(),
-      fetchContacts()
+      fetchTasks(context),
+      fetchProjects(context),
+      fetchContacts(context)
     ]);
     setTasks(tasksData);
     setProjects(projectsData);
