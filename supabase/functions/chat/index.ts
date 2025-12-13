@@ -543,24 +543,43 @@ serve(async (req) => {
       throw new Error("LOVABLE_API_KEY is not configured");
     }
 
-    // Get auth user
+    // Get auth user - support both user JWT and service role with user_id header
     const authHeader = req.headers.get("Authorization");
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      { global: { headers: { Authorization: authHeader ?? "" } } }
-    );
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const userIdHeader = req.headers.get("x-user-id");
+    
+    let userId: string;
+    let supabaseClient: any;
+    
+    // Check if this is a service-to-service call (from slack-webhook etc.)
+    if (authHeader?.includes(serviceRoleKey || "") && userIdHeader) {
+      // Service role call with explicit user ID
+      userId = userIdHeader;
+      supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        serviceRoleKey ?? "",
+      );
+      console.log("Service-to-service call for user:", userId);
+    } else {
+      // Regular user auth
+      supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: authHeader ?? "" } } }
+      );
 
-    const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
-    if (authError || !user) {
-      console.error("Auth error:", authError);
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser();
+      if (authError || !user) {
+        console.error("Auth error:", authError);
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      userId = user.id;
     }
 
-    console.log("Chat request from user:", user.id, "conversationId:", conversationId);
+    console.log("Chat request from user:", userId, "conversationId:", conversationId);
 
     // First call - check if AI wants to use tools
     const initialResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -616,7 +635,7 @@ serve(async (req) => {
       const toolResults = [];
       for (const toolCall of assistantMessage.tool_calls) {
         const args = JSON.parse(toolCall.function.arguments);
-        const result = await executeTool(toolCall.function.name, args, supabaseClient, user.id);
+        const result = await executeTool(toolCall.function.name, args, supabaseClient, userId);
         toolResults.push({
           tool_call_id: toolCall.id,
           role: "tool",
