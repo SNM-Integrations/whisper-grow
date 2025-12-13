@@ -125,22 +125,24 @@ async function callChatFunction(
     
     for (const line of lines) {
       if (line.startsWith('data: ')) {
-        const data = line.slice(6);
-        if (data === '[DONE]') continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]' || !data) continue;
         try {
           const parsed = JSON.parse(data);
-          if (parsed.choices?.[0]?.delta?.content) {
-            fullContent += parsed.choices[0].delta.content;
+          // Handle the correct response structure
+          const content = parsed.choices?.[0]?.delta?.content || 
+                         parsed.choices?.[0]?.message?.content || '';
+          if (content) {
+            fullContent += content;
           }
         } catch (e) {
-          // Not JSON, might be raw text
-          fullContent += data;
+          // Skip non-JSON lines
         }
       }
     }
   }
 
-  return fullContent || 'I processed your request but have no response to display.';
+  return fullContent.trim() || 'I processed your request but have no response to display.';
 }
 
 serve(async (req) => {
