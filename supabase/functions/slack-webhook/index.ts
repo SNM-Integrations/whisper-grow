@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slack-signature, x-slack-request-timestamp',
 };
 
+// Simple in-memory cache for event deduplication (events are unique per cold start)
+const processedEvents = new Set<string>();
+
 // Verify Slack request signature
 async function verifySlackRequest(
   body: string,
@@ -209,6 +212,25 @@ serve(async (req) => {
     // Handle event callbacks
     if (body.type === 'event_callback') {
       const event = body.event;
+      const eventId = body.event_id;
+      
+      // Deduplicate events - Slack may retry the same event multiple times
+      if (eventId && processedEvents.has(eventId)) {
+        console.log(`Ignoring duplicate event: ${eventId}`);
+        return new Response(JSON.stringify({ ok: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      // Mark event as processed
+      if (eventId) {
+        processedEvents.add(eventId);
+        // Clean up old events to prevent memory growth (keep last 1000)
+        if (processedEvents.size > 1000) {
+          const firstItem = processedEvents.values().next().value;
+          if (firstItem) processedEvents.delete(firstItem);
+        }
+      }
       
       // Ignore bot messages to prevent loops
       if (event.bot_id || event.subtype === 'bot_message') {
@@ -332,9 +354,6 @@ serve(async (req) => {
 
         // Call chat function with service role
         try {
-          // Send typing indicator
-          await postSlackMessage(slackSettings.botToken, channelId, "🤔 Thinking...", threadTs);
-
           const aiResponse = await callChatFunction(messages, supabaseServiceKey, supabaseUrl, userId);
 
           // Save AI response
