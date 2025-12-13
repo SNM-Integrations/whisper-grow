@@ -217,8 +217,9 @@ serve(async (req) => {
         });
       }
 
-      // Handle app_mention or message events
-      if (event.type === 'app_mention' || event.type === 'message') {
+      // Only handle app_mention events (ignore regular message events to avoid duplicates)
+      // Slack sends both 'message' and 'app_mention' for @mentions - we only want one
+      if (event.type === 'app_mention') {
         const slackUserId = event.user;
         const channelId = event.channel;
         const threadTs = event.thread_ts || event.ts; // Use thread_ts if in thread, otherwise message ts
