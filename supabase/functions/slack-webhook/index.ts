@@ -7,9 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-slack-signature, x-slack-request-timestamp',
 };
 
-// Simple in-memory cache for event deduplication (events are unique per cold start)
-const processedEvents = new Set<string>();
-
 // Verify Slack request signature
 async function verifySlackRequest(
   body: string,
@@ -213,24 +210,7 @@ serve(async (req) => {
     if (body.type === 'event_callback') {
       const event = body.event;
       const eventId = body.event_id;
-      
-      // Deduplicate events - Slack may retry the same event multiple times
-      if (eventId && processedEvents.has(eventId)) {
-        console.log(`Ignoring duplicate event: ${eventId}`);
-        return new Response(JSON.stringify({ ok: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      
-      // Mark event as processed
-      if (eventId) {
-        processedEvents.add(eventId);
-        // Clean up old events to prevent memory growth (keep last 1000)
-        if (processedEvents.size > 1000) {
-          const firstItem = processedEvents.values().next().value;
-          if (firstItem) processedEvents.delete(firstItem);
-        }
-      }
+      const messageTs = event.ts; // Unique timestamp for each message
       
       // Ignore bot messages to prevent loops
       if (event.bot_id || event.subtype === 'bot_message') {
@@ -240,15 +220,30 @@ serve(async (req) => {
       }
 
       // Only handle app_mention events (ignore regular message events to avoid duplicates)
-      // Slack sends both 'message' and 'app_mention' for @mentions - we only want one
       if (event.type === 'app_mention') {
-        const slackUserId = event.user;
         const channelId = event.channel;
-        const threadTs = event.thread_ts || event.ts; // Use thread_ts if in thread, otherwise message ts
-        const messageText = event.text?.replace(/<@[A-Z0-9]+>/g, '').trim() || ''; // Remove @mentions
-        const workspaceId = body.team_id;
+        const threadTs = event.thread_ts || event.ts;
+        
+        // Check if we already have a conversation for this exact message timestamp
+        // This prevents duplicate processing when Slack retries the same event
+        const { data: existingSlackConvo } = await supabaseAdmin
+          .from('slack_conversations')
+          .select('conversation_id')
+          .eq('slack_channel_id', channelId)
+          .eq('slack_thread_ts', messageTs) // Use the message ts, not thread ts
+          .eq('slack_workspace_id', workspaceId)
+          .single();
+        
+        if (existingSlackConvo) {
+          console.log(`Already processed message ${messageTs}, skipping`);
+          return new Response(JSON.stringify({ ok: true }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const slackUserId = event.user;
+        const messageText = event.text?.replace(/<@[A-Z0-9]+>/g, '').trim() || '';
 
-        console.log(`Processing message from ${slackUserId}: ${messageText}`);
+        console.log(`Processing NEW message from ${slackUserId}: ${messageText} (ts: ${messageTs})`);
 
         // Look up user mapping - check for org-specific or personal mapping
         let userMappingQuery = supabaseAdmin
@@ -318,13 +313,13 @@ serve(async (req) => {
 
           conversationId = newConvo.id;
 
-          // Link to Slack thread
+          // Link to Slack thread using the message ts for deduplication
           await supabaseAdmin
             .from('slack_conversations')
             .insert({
               conversation_id: conversationId,
               slack_channel_id: channelId,
-              slack_thread_ts: threadTs,
+              slack_thread_ts: messageTs, // Use message ts for dedup, not thread ts
               slack_workspace_id: workspaceId,
             });
         }
