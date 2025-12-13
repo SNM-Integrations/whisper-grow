@@ -949,6 +949,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          organization_id: string | null
           slack_user_id: string
           slack_username: string | null
           slack_workspace_id: string
@@ -958,6 +959,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           slack_user_id: string
           slack_username?: string | null
           slack_workspace_id: string
@@ -967,13 +969,22 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          organization_id?: string | null
           slack_user_id?: string
           slack_username?: string | null
           slack_workspace_id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "slack_user_mappings_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {

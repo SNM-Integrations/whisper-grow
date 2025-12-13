@@ -43,6 +43,9 @@ export const IntegrationSettings = () => {
   // Slack settings
   const [slackBotToken, setSlackBotToken] = useState("");
   const [slackSigningSecret, setSlackSigningSecret] = useState("");
+  const [slackUserId, setSlackUserId] = useState("");
+  const [slackWorkspaceId, setSlackWorkspaceId] = useState("");
+  const [slackLinked, setSlackLinked] = useState(false);
 
   const isOrgContext = context.mode === "organization" && currentOrg;
   const contextLabel = isOrgContext ? currentOrg.name : "Personal";
@@ -50,6 +53,7 @@ export const IntegrationSettings = () => {
   useEffect(() => {
     if (user) {
       fetchSettings();
+      fetchSlackMapping();
     }
   }, [user, context]);
 
@@ -91,6 +95,37 @@ export const IntegrationSettings = () => {
       console.error("Error fetching integration settings:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSlackMapping = async () => {
+    if (!user) return;
+    
+    try {
+      const query = supabase
+        .from("slack_user_mappings")
+        .select("*")
+        .eq("user_id", user.id);
+
+      if (isOrgContext && currentOrg) {
+        query.eq("organization_id", currentOrg.id);
+      } else {
+        query.is("organization_id", null);
+      }
+
+      const { data } = await query.maybeSingle();
+
+      if (data) {
+        setSlackUserId(data.slack_user_id || "");
+        setSlackWorkspaceId(data.slack_workspace_id || "");
+        setSlackLinked(true);
+      } else {
+        setSlackUserId("");
+        setSlackWorkspaceId("");
+        setSlackLinked(false);
+      }
+    } catch (error) {
+      console.error("Error fetching Slack mapping:", error);
     }
   };
 
@@ -170,6 +205,113 @@ export const IntegrationSettings = () => {
       bot_token: slackBotToken,
       signing_secret: slackSigningSecret,
     });
+  };
+
+  const handleLinkSlack = async () => {
+    if (!user || !slackUserId || !slackWorkspaceId) {
+      toast({
+        title: "Missing information",
+        description: "Please enter both your Slack User ID and Workspace ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      // Check if mapping exists
+      const query = supabase
+        .from("slack_user_mappings")
+        .select("id")
+        .eq("user_id", user.id);
+
+      if (isOrgContext && currentOrg) {
+        query.eq("organization_id", currentOrg.id);
+      } else {
+        query.is("organization_id", null);
+      }
+
+      const { data: existing } = await query.maybeSingle();
+
+      if (existing) {
+        // Update existing
+        const { error } = await supabase
+          .from("slack_user_mappings")
+          .update({
+            slack_user_id: slackUserId,
+            slack_workspace_id: slackWorkspaceId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new
+        const { error } = await supabase
+          .from("slack_user_mappings")
+          .insert([{
+            user_id: user.id,
+            organization_id: isOrgContext && currentOrg ? currentOrg.id : null,
+            slack_user_id: slackUserId,
+            slack_workspace_id: slackWorkspaceId,
+          }]);
+
+        if (error) throw error;
+      }
+
+      setSlackLinked(true);
+      toast({
+        title: "Slack account linked",
+        description: `Your Slack account is now linked for ${contextLabel}.`,
+      });
+    } catch (error) {
+      console.error("Error linking Slack account:", error);
+      toast({
+        title: "Error linking Slack",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleUnlinkSlack = async () => {
+    if (!user) return;
+
+    setSaving(true);
+    try {
+      const query = supabase
+        .from("slack_user_mappings")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (isOrgContext && currentOrg) {
+        query.eq("organization_id", currentOrg.id);
+      } else {
+        query.is("organization_id", null);
+      }
+
+      const { error } = await query;
+      if (error) throw error;
+
+      setSlackUserId("");
+      setSlackWorkspaceId("");
+      setSlackLinked(false);
+      toast({
+        title: "Slack account unlinked",
+        description: "Your Slack account has been disconnected.",
+      });
+    } catch (error) {
+      console.error("Error unlinking Slack:", error);
+      toast({
+        title: "Error unlinking Slack",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const toggleShowSecret = (key: string) => {
@@ -445,6 +587,65 @@ export const IntegrationSettings = () => {
                   <li>Subscribe to bot events: app_mention, message.channels</li>
                   <li>Install to workspace and copy Bot Token (xoxb-...) and Signing Secret</li>
                 </ol>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Account Linking Section */}
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">🔗</span>
+                Link Your Slack Account
+              </CardTitle>
+              <CardDescription>
+                Connect your Slack user to receive AI responses in Slack.
+                {slackLinked && <span className="ml-2 text-green-500">✓ Linked</span>}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="slack-user-id">Your Slack Member ID</Label>
+                  <Input
+                    id="slack-user-id"
+                    value={slackUserId}
+                    onChange={(e) => setSlackUserId(e.target.value)}
+                    placeholder="U0XXXXXXXXX"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Click your profile → "..." → "Copy member ID"
+                  </p>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="slack-workspace-id">Workspace ID</Label>
+                  <Input
+                    id="slack-workspace-id"
+                    value={slackWorkspaceId}
+                    onChange={(e) => setSlackWorkspaceId(e.target.value)}
+                    placeholder="T0XXXXXXXXX"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Found in Slack app settings under "Basic Information"
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-2">
+                <Button onClick={handleLinkSlack} disabled={saving || !slackUserId || !slackWorkspaceId}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  {slackLinked ? "Update Link" : "Link Account"}
+                </Button>
+                {slackLinked && (
+                  <Button variant="outline" onClick={handleUnlinkSlack} disabled={saving}>
+                    Unlink
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>

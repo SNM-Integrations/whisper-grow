@@ -30,25 +30,34 @@ async function verifySlackRequest(
   return computedSignature === signature;
 }
 
-// Get Slack settings from integration_settings
-async function getSlackSettings(supabaseClient: any): Promise<{ botToken: string; signingSecret: string } | null> {
-  // Try to get org-level settings first, then personal
+// Get Slack settings from integration_settings by workspace
+async function getSlackSettingsByWorkspace(
+  supabaseClient: any, 
+  workspaceId: string
+): Promise<{ botToken: string; signingSecret: string; organizationId: string | null } | null> {
+  // Get all Slack settings and find one that matches this workspace
   const { data, error } = await supabaseClient
     .from('integration_settings')
-    .select('settings')
-    .eq('integration_type', 'slack')
-    .limit(1)
-    .single();
+    .select('settings, organization_id')
+    .eq('integration_type', 'slack');
   
-  if (error || !data?.settings) {
+  if (error || !data?.length) {
     console.error('No Slack settings found:', error);
     return null;
   }
+
+  // Find settings that have bot_token (any configured Slack)
+  for (const setting of data) {
+    if (setting.settings?.bot_token && setting.settings?.signing_secret) {
+      return {
+        botToken: setting.settings.bot_token,
+        signingSecret: setting.settings.signing_secret,
+        organizationId: setting.organization_id,
+      };
+    }
+  }
   
-  return {
-    botToken: data.settings.bot_token,
-    signingSecret: data.settings.signing_secret,
-  };
+  return null;
 }
 
 // Post message to Slack
@@ -162,8 +171,11 @@ serve(async (req) => {
       });
     }
 
+    // Get workspace ID early for settings lookup
+    const workspaceId = body.team_id || '';
+    
     // Get Slack settings
-    const slackSettings = await getSlackSettings(supabaseAdmin);
+    const slackSettings = await getSlackSettingsByWorkspace(supabaseAdmin, workspaceId);
     if (!slackSettings) {
       console.error('Slack settings not configured');
       return new Response(JSON.stringify({ error: 'Slack not configured' }), {
@@ -171,6 +183,8 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    
+    const organizationId = slackSettings.organizationId;
 
     // Verify request signature
     const timestamp = req.headers.get('x-slack-request-timestamp') || '';
@@ -209,13 +223,21 @@ serve(async (req) => {
 
         console.log(`Processing message from ${slackUserId}: ${messageText}`);
 
-        // Look up user mapping
-        const { data: userMapping, error: mappingError } = await supabaseAdmin
+        // Look up user mapping - check for org-specific or personal mapping
+        let userMappingQuery = supabaseAdmin
           .from('slack_user_mappings')
-          .select('user_id')
+          .select('user_id, organization_id')
           .eq('slack_user_id', slackUserId)
-          .eq('slack_workspace_id', workspaceId)
-          .single();
+          .eq('slack_workspace_id', workspaceId);
+        
+        // If this is an org Slack, prefer org mapping
+        if (organizationId) {
+          userMappingQuery = userMappingQuery.eq('organization_id', organizationId);
+        } else {
+          userMappingQuery = userMappingQuery.is('organization_id', null);
+        }
+
+        const { data: userMapping, error: mappingError } = await userMappingQuery.single();
 
         if (mappingError || !userMapping) {
           console.log('User not linked, sending help message');
@@ -231,6 +253,7 @@ serve(async (req) => {
         }
 
         const userId = userMapping.user_id;
+        const mappingOrgId = userMapping.organization_id;
 
         // Get or create conversation for this thread
         let conversationId: string;
@@ -245,14 +268,20 @@ serve(async (req) => {
         if (existingConvo) {
           conversationId = existingConvo.conversation_id;
         } else {
-          // Create new conversation
+          // Create new conversation with org context if applicable
+          const conversationData: Record<string, unknown> = {
+            user_id: userId,
+            title: `Slack: ${messageText.substring(0, 50)}...`,
+            visibility: mappingOrgId ? 'organization' : 'personal',
+          };
+          
+          if (mappingOrgId) {
+            conversationData.organization_id = mappingOrgId;
+          }
+
           const { data: newConvo, error: convoError } = await supabaseAdmin
             .from('conversations')
-            .insert({
-              user_id: userId,
-              title: `Slack: ${messageText.substring(0, 50)}...`,
-              visibility: 'personal',
-            })
+            .insert(conversationData)
             .select('id')
             .single();
 
