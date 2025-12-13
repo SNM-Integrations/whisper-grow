@@ -124,8 +124,22 @@ export function useOrganization() {
       return null;
     }
 
-    await fetchOrganizations();
-    return organizations.find(o => o.id === data) || null;
+    // Fetch the newly created organization directly
+    const { data: newOrg, error: fetchError } = await supabase
+      .from("organizations")
+      .select("*")
+      .eq("id", data)
+      .single();
+
+    if (fetchError || !newOrg) {
+      console.error("Error fetching new organization:", fetchError);
+      return null;
+    }
+
+    // Update the organizations list
+    setOrganizations(prev => [...prev, newOrg]);
+    
+    return newOrg;
   };
 
   const switchToOrganization = (org: Organization | null) => {
