@@ -293,22 +293,31 @@ async function executeTool(
   toolName: string, 
   args: Record<string, unknown>, 
   supabaseClient: any,
-  userId: string
+  userId: string,
+  organizationId?: string | null
 ): Promise<{ success: boolean; result?: unknown; error?: string }> {
   console.log(`Executing tool: ${toolName} with args:`, args);
   
   try {
     switch (toolName) {
       case "create_task": {
+        const taskData: Record<string, unknown> = {
+          user_id: userId,
+          title: args.title as string,
+          description: args.description as string || null,
+          priority: args.priority as string || "medium",
+          due_date: args.due_date ? new Date(args.due_date as string).toISOString() : null,
+        };
+        
+        // Add organization context if available
+        if (organizationId) {
+          taskData.organization_id = organizationId;
+          taskData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("tasks")
-          .insert({
-            user_id: userId,
-            title: args.title as string,
-            description: args.description as string || null,
-            priority: args.priority as string || "medium",
-            due_date: args.due_date ? new Date(args.due_date as string).toISOString() : null,
-          })
+          .insert(taskData)
           .select()
           .single();
         
@@ -341,12 +350,19 @@ async function executeTool(
       }
       
       case "create_note": {
+        const noteData: Record<string, unknown> = {
+          user_id: userId,
+          content: args.content as string,
+        };
+        
+        if (organizationId) {
+          noteData.organization_id = organizationId;
+          noteData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("notes")
-          .insert({
-            user_id: userId,
-            content: args.content as string,
-          })
+          .insert(noteData)
           .select()
           .single();
         
@@ -367,16 +383,23 @@ async function executeTool(
       }
       
       case "create_calendar_event": {
+        const eventData: Record<string, unknown> = {
+          user_id: userId,
+          title: args.title as string,
+          description: args.description as string || null,
+          start_time: args.start_time as string,
+          end_time: args.end_time as string,
+          location: args.location as string || null,
+        };
+        
+        if (organizationId) {
+          eventData.organization_id = organizationId;
+          eventData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("calendar_events")
-          .insert({
-            user_id: userId,
-            title: args.title as string,
-            description: args.description as string || null,
-            start_time: args.start_time as string,
-            end_time: args.end_time as string,
-            location: args.location as string || null,
-          })
+          .insert(eventData)
           .select()
           .single();
         
@@ -399,18 +422,25 @@ async function executeTool(
       
       case "create_contact": {
         const relationship = args.relationship as string || "network";
+        const contactData: Record<string, unknown> = {
+          user_id: userId,
+          name: args.name as string,
+          email: args.email as string || null,
+          phone: args.phone as string || null,
+          company: args.company as string || null,
+          role: args.role as string || null,
+          notes: args.notes as string || null,
+          tags: [relationship],
+        };
+        
+        if (organizationId) {
+          contactData.organization_id = organizationId;
+          contactData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("contacts")
-          .insert({
-            user_id: userId,
-            name: args.name as string,
-            email: args.email as string || null,
-            phone: args.phone as string || null,
-            company: args.company as string || null,
-            role: args.role as string || null,
-            notes: args.notes as string || null,
-            tags: [relationship],
-          })
+          .insert(contactData)
           .select()
           .single();
         
@@ -419,16 +449,23 @@ async function executeTool(
       }
       
       case "create_company": {
+        const companyData: Record<string, unknown> = {
+          user_id: userId,
+          name: args.name as string,
+          industry: args.industry as string || null,
+          website: args.website as string || null,
+          employees: args.employees as number || null,
+          notes: args.notes as string || null,
+        };
+        
+        if (organizationId) {
+          companyData.organization_id = organizationId;
+          companyData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("companies")
-          .insert({
-            user_id: userId,
-            name: args.name as string,
-            industry: args.industry as string || null,
-            website: args.website as string || null,
-            employees: args.employees as number || null,
-            notes: args.notes as string || null,
-          })
+          .insert(companyData)
           .select()
           .single();
         
@@ -437,16 +474,23 @@ async function executeTool(
       }
       
       case "create_deal": {
+        const dealData: Record<string, unknown> = {
+          user_id: userId,
+          title: args.title as string,
+          value: args.value as number || 0,
+          stage: args.stage as string || "lead",
+          expected_close_date: args.expected_close_date as string || null,
+          notes: args.notes as string || null,
+        };
+        
+        if (organizationId) {
+          dealData.organization_id = organizationId;
+          dealData.visibility = 'organization';
+        }
+        
         const { data, error } = await supabaseClient
           .from("deals")
-          .insert({
-            user_id: userId,
-            title: args.title as string,
-            value: args.value as number || 0,
-            stage: args.stage as string || "lead",
-            expected_close_date: args.expected_close_date as string || null,
-            notes: args.notes as string || null,
-          })
+          .insert(dealData)
           .select()
           .single();
         
@@ -547,8 +591,10 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization");
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const userIdHeader = req.headers.get("x-user-id");
+    const organizationIdHeader = req.headers.get("x-organization-id");
     
     let userId: string;
+    let organizationId: string | null = organizationIdHeader || null;
     let supabaseClient: any;
     
     // Check if this is a service-to-service call (from slack-webhook etc.)
@@ -559,7 +605,7 @@ serve(async (req) => {
         Deno.env.get("SUPABASE_URL") ?? "",
         serviceRoleKey ?? "",
       );
-      console.log("Service-to-service call for user:", userId);
+      console.log("Service-to-service call for user:", userId, "org:", organizationId);
     } else {
       // Regular user auth
       supabaseClient = createClient(
@@ -635,7 +681,7 @@ serve(async (req) => {
       const toolResults = [];
       for (const toolCall of assistantMessage.tool_calls) {
         const args = JSON.parse(toolCall.function.arguments);
-        const result = await executeTool(toolCall.function.name, args, supabaseClient, userId);
+        const result = await executeTool(toolCall.function.name, args, supabaseClient, userId, organizationId);
         toolResults.push({
           tool_call_id: toolCall.id,
           role: "tool",

@@ -91,15 +91,22 @@ async function callChatFunction(
   messages: Array<{ role: string; content: string }>,
   accessToken: string,
   supabaseUrl: string,
-  userId: string
+  userId: string,
+  organizationId?: string | null
 ): Promise<string> {
+  const headers: Record<string, string> = {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json',
+    'x-user-id': userId,
+  };
+  
+  if (organizationId) {
+    headers['x-organization-id'] = organizationId;
+  }
+  
   const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'x-user-id': userId,
-    },
+    headers,
     body: JSON.stringify({ messages }),
   });
 
@@ -347,9 +354,9 @@ serve(async (req) => {
           content: m.content as string,
         }));
 
-        // Call chat function with service role
+        // Call chat function with service role and org context
         try {
-          const aiResponse = await callChatFunction(messages, supabaseServiceKey, supabaseUrl, userId);
+          const aiResponse = await callChatFunction(messages, supabaseServiceKey, supabaseUrl, userId, mappingOrgId);
 
           // Save AI response
           await supabaseAdmin
