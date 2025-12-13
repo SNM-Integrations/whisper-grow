@@ -90,13 +90,15 @@ async function postSlackMessage(
 async function callChatFunction(
   messages: Array<{ role: string; content: string }>,
   accessToken: string,
-  supabaseUrl: string
+  supabaseUrl: string,
+  userId: string
 ): Promise<string> {
   const response = await fetch(`${supabaseUrl}/functions/v1/chat`, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${accessToken}`,
       'Content-Type': 'application/json',
+      'x-user-id': userId,
     },
     body: JSON.stringify({ messages }),
   });
@@ -330,7 +332,7 @@ serve(async (req) => {
           // Send typing indicator
           await postSlackMessage(slackSettings.botToken, channelId, "🤔 Thinking...", threadTs);
 
-          const aiResponse = await callChatFunction(messages, supabaseServiceKey, supabaseUrl);
+          const aiResponse = await callChatFunction(messages, supabaseServiceKey, supabaseUrl, userId);
 
           // Save AI response
           await supabaseAdmin
