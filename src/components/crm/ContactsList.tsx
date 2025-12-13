@@ -21,6 +21,7 @@ import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-
 import { ContactDialog } from "./ContactDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/useOrganization";
 
 export interface Contact {
   id: string;
@@ -41,6 +42,7 @@ const relationshipColors: Record<Contact["relationship"], string> = {
 };
 
 export function ContactsList() {
+  const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -49,11 +51,20 @@ export function ContactsList() {
 
   const loadContacts = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("contacts")
       .select("*")
       .eq("contact_type", "contact")
       .order("name", { ascending: true });
+
+    // Filter by context
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching contacts:", error);
@@ -84,7 +95,7 @@ export function ContactsList() {
 
   useEffect(() => {
     loadContacts();
-  }, []);
+  }, [context]);
 
   const filteredContacts = contacts.filter(
     (contact) =>

@@ -23,6 +23,7 @@ import {
 import { ClientDialog } from "./ClientDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/useOrganization";
 
 export interface Client {
   id: string;
@@ -42,6 +43,7 @@ const statusColors: Record<Client["status"], string> = {
 };
 
 export function ClientsList() {
+  const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [clients, setClients] = useState<Client[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,11 +52,20 @@ export function ClientsList() {
 
   const loadClients = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("companies")
       .select("*")
       .eq("company_type", "client")
       .order("name", { ascending: true });
+
+    // Filter by context
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching clients:", error);
@@ -84,7 +95,7 @@ export function ClientsList() {
 
   useEffect(() => {
     loadClients();
-  }, []);
+  }, [context]);
 
   const filteredClients = clients.filter(
     (client) =>

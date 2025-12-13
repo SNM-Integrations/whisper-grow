@@ -23,6 +23,7 @@ import {
 import { CompanyDialog } from "./CompanyDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/useOrganization";
 
 // Company Lead (prospective company)
 export interface CompanyLead {
@@ -46,6 +47,7 @@ const statusColors: Record<CompanyLead["status"], string> = {
 };
 
 export function CompaniesList() {
+  const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [companies, setCompanies] = useState<CompanyLead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -54,11 +56,20 @@ export function CompaniesList() {
 
   const loadCompanies = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("companies")
       .select("*")
       .eq("company_type", "lead")
       .order("name", { ascending: true });
+
+    // Filter by context
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching company leads:", error);
@@ -91,7 +102,7 @@ export function CompaniesList() {
 
   useEffect(() => {
     loadCompanies();
-  }, []);
+  }, [context]);
 
   const filteredCompanies = companies.filter(
     (company) =>

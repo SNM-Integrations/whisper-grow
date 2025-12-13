@@ -16,6 +16,7 @@ import {
   deleteDeal,
   type Deal as SupabaseDeal,
 } from "@/lib/supabase-api";
+import { useOrganization } from "@/hooks/useOrganization";
 
 export interface Deal {
   id: string;
@@ -70,6 +71,7 @@ function mapDeal(d: SupabaseDeal): Deal {
 }
 
 export function DealsPipeline() {
+  const { context } = useOrganization();
   const [deals, setDeals] = useState<Deal[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -77,14 +79,14 @@ export function DealsPipeline() {
 
   const loadDeals = async () => {
     setIsLoading(true);
-    const data = await fetchDeals();
+    const data = await fetchDeals(context);
     setDeals(data.map(mapDeal));
     setIsLoading(false);
   };
 
   useEffect(() => {
     loadDeals();
-  }, []);
+  }, [context]);
 
   const getDealsByStage = (stage: Deal["stage"]) =>
     deals.filter((deal) => deal.stage === stage);

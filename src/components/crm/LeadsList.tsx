@@ -21,6 +21,7 @@ import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, UserCheck } fr
 import { LeadDialog } from "./LeadDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useOrganization } from "@/hooks/useOrganization";
 
 export interface Lead {
   id: string;
@@ -43,6 +44,7 @@ const statusColors: Record<Lead["status"], string> = {
 };
 
 export function LeadsList() {
+  const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,11 +53,20 @@ export function LeadsList() {
 
   const loadLeads = async () => {
     setIsLoading(true);
-    const { data, error } = await supabase
+    let query = supabase
       .from("contacts")
       .select("*")
       .eq("contact_type", "lead")
       .order("updated_at", { ascending: false });
+
+    // Filter by context
+    if (context.mode === "personal") {
+      query = query.eq("visibility", "personal");
+    } else if (context.mode === "organization" && context.organizationId) {
+      query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       console.error("Error fetching leads:", error);
@@ -88,7 +99,7 @@ export function LeadsList() {
 
   useEffect(() => {
     loadLeads();
-  }, []);
+  }, [context]);
 
   const filteredLeads = leads.filter(
     (lead) =>
