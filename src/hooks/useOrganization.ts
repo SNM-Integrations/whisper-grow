@@ -150,11 +150,15 @@ export function useOrganization() {
       setCurrentOrg(null);
       setContext({ mode: "personal", organizationId: null });
     }
+    // Reload to refresh all data with new context
+    window.location.reload();
   };
 
   const switchToPersonal = () => {
     setCurrentOrg(null);
     setContext({ mode: "personal", organizationId: null });
+    // Reload to refresh all data with new context
+    window.location.reload();
   };
 
   const inviteMember = async (email: string, role: OrgRole = "member"): Promise<boolean> => {
