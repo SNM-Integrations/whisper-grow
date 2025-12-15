@@ -231,6 +231,20 @@ serve(async (req) => {
             message = `🟡 ${message}`;
           }
           
+          // Try to atomically mark notification as pending to prevent duplicates
+          const { data: updated, error: updateError } = await supabase
+            .from('tasks')
+            .update({ notifications_sent: [...notificationsSentList, notificationKey] })
+            .eq('id', task.id)
+            .not('notifications_sent', 'cs', `{${notificationKey}}`)
+            .select('id');
+          
+          // If no row was updated, another instance already claimed this notification
+          if (updateError || !updated || updated.length === 0) {
+            console.log(`Notification ${notificationKey} already being sent by another instance`);
+            continue;
+          }
+          
           // Send the notification
           const sent = await postSlackMessage(
             slackSettings.botToken,
@@ -239,15 +253,14 @@ serve(async (req) => {
           );
           
           if (sent) {
-            // Mark notification as sent
-            const updatedSentList = [...notificationsSentList, notificationKey];
-            await supabase
-              .from('tasks')
-              .update({ notifications_sent: updatedSentList })
-              .eq('id', task.id);
-            
             notificationsSent++;
             console.log(`Notification sent for task ${task.id}`);
+          } else {
+            // Rollback if send failed
+            await supabase
+              .from('tasks')
+              .update({ notifications_sent: notificationsSentList })
+              .eq('id', task.id);
           }
         }
       }
