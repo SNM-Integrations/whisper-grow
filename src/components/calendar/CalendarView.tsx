@@ -158,19 +158,24 @@ export function CalendarView() {
       const afterDate = format(start, "yyyy-MM-dd");
       const beforeDate = format(end, "yyyy-MM-dd");
       
-      // Call the n8n workflow to fetch Google Calendar events
+      // Call the edge function to fetch Google Calendar events via n8n
       const { data, error } = await supabase.functions.invoke("sync-google-calendar", {
         body: {
           after: afterDate,
           before: beforeDate,
           viewMode,
+          organizationId: context.mode === "organization" ? context.organizationId : null,
         },
       });
 
       if (error) throw error;
       
-      toast.success(`Calendar synced for ${viewMode} view`);
-      await loadEvents();
+      if (data?.error) {
+        toast.error(data.error);
+      } else {
+        toast.success(data?.message || `Calendar synced for ${viewMode} view`);
+        await loadEvents();
+      }
     } catch (error) {
       console.error("Sync error:", error);
       toast.error("Failed to sync calendar");
