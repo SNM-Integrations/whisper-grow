@@ -209,55 +209,88 @@ export type Database = {
       }
       contacts: {
         Row: {
+          address: string | null
           assigned_to: string | null
+          city: string | null
           company: string | null
           contact_type: Database["public"]["Enums"]["contact_type"]
           created_at: string
           email: string | null
+          end_date: string | null
+          estimated_hours: number | null
           id: string
+          job_description: string | null
           name: string
           notes: string | null
           organization_id: string | null
+          personal_number: string | null
           phone: string | null
           role: string | null
+          rot_rut_info: string | null
+          seventime_customer_id: string | null
+          seventime_workorder_id: string | null
+          start_date: string | null
           tags: string[] | null
           updated_at: string
           user_id: string
           visibility: Database["public"]["Enums"]["resource_visibility"]
+          zip_code: string | null
         }
         Insert: {
+          address?: string | null
           assigned_to?: string | null
+          city?: string | null
           company?: string | null
           contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
+          end_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          job_description?: string | null
           name: string
           notes?: string | null
           organization_id?: string | null
+          personal_number?: string | null
           phone?: string | null
           role?: string | null
+          rot_rut_info?: string | null
+          seventime_customer_id?: string | null
+          seventime_workorder_id?: string | null
+          start_date?: string | null
           tags?: string[] | null
           updated_at?: string
           user_id: string
           visibility?: Database["public"]["Enums"]["resource_visibility"]
+          zip_code?: string | null
         }
         Update: {
+          address?: string | null
           assigned_to?: string | null
+          city?: string | null
           company?: string | null
           contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
+          end_date?: string | null
+          estimated_hours?: number | null
           id?: string
+          job_description?: string | null
           name?: string
           notes?: string | null
           organization_id?: string | null
+          personal_number?: string | null
           phone?: string | null
           role?: string | null
+          rot_rut_info?: string | null
+          seventime_customer_id?: string | null
+          seventime_workorder_id?: string | null
+          start_date?: string | null
           tags?: string[] | null
           updated_at?: string
           user_id?: string
           visibility?: Database["public"]["Enums"]["resource_visibility"]
+          zip_code?: string | null
         }
         Relationships: [
           {
