@@ -43,6 +43,7 @@ export const IntegrationSettings = () => {
   // Slack settings
   const [slackBotToken, setSlackBotToken] = useState("");
   const [slackSigningSecret, setSlackSigningSecret] = useState("");
+  const [slackNotificationChannel, setSlackNotificationChannel] = useState("");
   const [slackUserId, setSlackUserId] = useState("");
   const [slackWorkspaceId, setSlackWorkspaceId] = useState("");
   const [slackLinked, setSlackLinked] = useState(false);
@@ -89,6 +90,7 @@ export const IntegrationSettings = () => {
         } else if (setting.integration_type === "slack") {
           setSlackBotToken((settingsData?.bot_token as string) || "");
           setSlackSigningSecret((settingsData?.signing_secret as string) || "");
+          setSlackNotificationChannel((settingsData?.notification_channel as string) || "");
         }
       });
     } catch (error) {
@@ -204,6 +206,7 @@ export const IntegrationSettings = () => {
     saveIntegration("slack", {
       bot_token: slackBotToken,
       signing_secret: slackSigningSecret,
+      notification_channel: slackNotificationChannel,
     });
   };
 
@@ -565,6 +568,20 @@ export const IntegrationSettings = () => {
                     )}
                   </Button>
                 </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="slack-notification-channel">Notification Channel ID</Label>
+                <Input
+                  id="slack-notification-channel"
+                  type="text"
+                  value={slackNotificationChannel}
+                  onChange={(e) => setSlackNotificationChannel(e.target.value)}
+                  placeholder="C0XXXXXXX"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Channel ID for task deadline notifications. Right-click channel → View channel details → Copy ID at bottom.
+                </p>
               </div>
 
               <div className="pt-2">

@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Calendar, Building2, FolderOpen, User, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2, FolderOpen, User, ChevronDown, ChevronRight, CheckCircle2, Bell } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchTasks,
@@ -230,6 +230,7 @@ export function TasksPanel() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
   const [parentTaskId, setParentTaskId] = useState<string | null>(null);
+  const [notificationSettings, setNotificationSettings] = useState<string[]>([]);
 
   useEffect(() => {
     loadData();
@@ -258,6 +259,7 @@ export function TasksPanel() {
     setProjectId(null);
     setAssignedTo(null);
     setParentTaskId(null);
+    setNotificationSettings([]);
     setEditingTask(null);
   };
 
@@ -273,6 +275,7 @@ export function TasksPanel() {
       setProjectId(task.project_id);
       setAssignedTo(task.assigned_to);
       setParentTaskId(task.parent_task_id);
+      setNotificationSettings(task.notification_settings || []);
     } else {
       resetForm();
     }
@@ -308,6 +311,8 @@ export function TasksPanel() {
       project_id: projectId,
       assigned_to: assignedTo,
       parent_task_id: parentTaskId,
+      notification_settings: notificationSettings,
+      notifications_sent: editingTask?.notifications_sent || [],
     };
 
     if (editingTask) {
@@ -535,6 +540,49 @@ export function TasksPanel() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Notification Settings - only show when due date is set */}
+              {dueDate && visibility === "organization" && (
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Slack Notifications
+                  </Label>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      { value: "1h", label: "1 hour" },
+                      { value: "6h", label: "6 hours" },
+                      { value: "12h", label: "12 hours" },
+                      { value: "24h", label: "24 hours" },
+                      { value: "48h", label: "48 hours" },
+                      { value: "1w", label: "1 week" },
+                    ].map((option) => {
+                      const isSelected = notificationSettings.includes(option.value);
+                      return (
+                        <Button
+                          key={option.value}
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => {
+                            if (isSelected) {
+                              setNotificationSettings(prev => prev.filter(v => v !== option.value));
+                            } else {
+                              setNotificationSettings(prev => [...prev, option.value]);
+                            }
+                          }}
+                          className="h-7 text-xs"
+                        >
+                          {option.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Send reminder to Slack channel before due date
+                  </p>
+                </div>
+              )}
               
               <div className="flex justify-end gap-2 pt-4">
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
