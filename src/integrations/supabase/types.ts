@@ -997,6 +997,8 @@ export type Database = {
           google_event_id: string | null
           id: string
           meeting_id: string | null
+          notification_settings: string[] | null
+          notifications_sent: string[] | null
           organization_id: string | null
           parent_task_id: string | null
           priority: string
@@ -1016,6 +1018,8 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           meeting_id?: string | null
+          notification_settings?: string[] | null
+          notifications_sent?: string[] | null
           organization_id?: string | null
           parent_task_id?: string | null
           priority?: string
@@ -1035,6 +1039,8 @@ export type Database = {
           google_event_id?: string | null
           id?: string
           meeting_id?: string | null
+          notification_settings?: string[] | null
+          notifications_sent?: string[] | null
           organization_id?: string | null
           parent_task_id?: string | null
           priority?: string

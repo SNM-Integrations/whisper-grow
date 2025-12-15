@@ -89,6 +89,8 @@ export interface Task {
   project_id: string | null;
   assigned_to: string | null;
   parent_task_id: string | null;
+  notification_settings: string[];
+  notifications_sent: string[];
   visibility: "personal" | "organization";
   organization_id: string | null;
   created_at: string;
