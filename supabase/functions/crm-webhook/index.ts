@@ -33,7 +33,7 @@ serve(async (req) => {
     console.log('CRM webhook received:', JSON.stringify(body, null, 2));
 
     // Validate required fields
-    const { name, email, phone, company, role, notes, tags, contact_type, user_id, organization_id, visibility } = body;
+    const { name, email, phone, company, role, notes, tags, contact_type, user_id, organization_id, visibility, website, industry } = body;
 
     if (!name) {
       return new Response(JSON.stringify({ error: 'Name is required' }), {
@@ -47,6 +47,60 @@ serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    let companyRecord = null;
+
+    // If company name provided, look up or create company
+    if (company) {
+      const companyName = company.trim().substring(0, 100);
+      
+      // Build query to find existing company
+      let companyQuery = supabaseAdmin
+        .from('companies')
+        .select('*')
+        .eq('name', companyName)
+        .eq('user_id', user_id);
+      
+      if (organization_id) {
+        companyQuery = companyQuery.eq('organization_id', organization_id);
+      }
+      
+      const { data: existingCompany, error: lookupError } = await companyQuery.maybeSingle();
+      
+      if (lookupError) {
+        console.error('Error looking up company:', lookupError);
+      }
+
+      if (existingCompany) {
+        companyRecord = existingCompany;
+        console.log('Found existing company:', companyRecord.id);
+      } else {
+        // Create new company
+        const companyData: Record<string, unknown> = {
+          name: companyName,
+          user_id,
+          company_type: 'lead',
+          visibility: organization_id ? 'organization' : (visibility || 'personal'),
+        };
+        
+        if (organization_id) companyData.organization_id = organization_id;
+        if (website) companyData.website = website.trim().substring(0, 255);
+        if (industry) companyData.industry = industry.trim().substring(0, 100);
+
+        const { data: newCompany, error: createError } = await supabaseAdmin
+          .from('companies')
+          .insert(companyData)
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error creating company:', createError);
+        } else {
+          companyRecord = newCompany;
+          console.log('Created new company:', companyRecord.id);
+        }
+      }
     }
 
     // Prepare contact data
@@ -86,7 +140,12 @@ serve(async (req) => {
 
     console.log('Contact created:', data.id);
 
-    return new Response(JSON.stringify({ success: true, contact: data }), {
+    return new Response(JSON.stringify({ 
+      success: true, 
+      contact: data,
+      company: companyRecord,
+      company_created: companyRecord && !companyRecord.created_at ? false : !!companyRecord
+    }), {
       status: 201,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
