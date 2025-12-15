@@ -998,6 +998,7 @@ export type Database = {
           id: string
           meeting_id: string | null
           organization_id: string | null
+          parent_task_id: string | null
           priority: string
           project_id: string | null
           title: string
@@ -1016,6 +1017,7 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           organization_id?: string | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           title: string
@@ -1034,6 +1036,7 @@ export type Database = {
           id?: string
           meeting_id?: string | null
           organization_id?: string | null
+          parent_task_id?: string | null
           priority?: string
           project_id?: string | null
           title?: string
@@ -1061,6 +1064,13 @@ export type Database = {
             columns: ["organization_id"]
             isOneToOne: false
             referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
           {

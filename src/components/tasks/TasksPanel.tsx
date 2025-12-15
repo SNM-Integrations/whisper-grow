@@ -18,9 +18,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Calendar, Building2, FolderOpen, User } from "lucide-react";
+import { Plus, Trash2, Calendar, Building2, FolderOpen, User, ChevronDown, ChevronRight, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import {
   fetchTasks,
@@ -38,6 +43,172 @@ import { format } from "date-fns";
 import { OwnerSelector } from "@/components/organization/OwnerSelector";
 import { useOrganization, type ResourceVisibility } from "@/hooks/useOrganization";
 
+const priorityOrder = { high: 0, medium: 1, low: 2 };
+
+function sortTasks(tasks: Task[]): Task[] {
+  return [...tasks].sort((a, b) => {
+    // First sort by priority
+    const priorityDiff = priorityOrder[a.priority] - priorityOrder[b.priority];
+    if (priorityDiff !== 0) return priorityDiff;
+    
+    // Then sort by due date (tasks with due dates first, earlier dates first)
+    if (a.due_date && b.due_date) {
+      return new Date(a.due_date).getTime() - new Date(b.due_date).getTime();
+    }
+    if (a.due_date) return -1;
+    if (b.due_date) return 1;
+    
+    return 0;
+  });
+}
+
+interface TaskItemProps {
+  task: Task;
+  projects: Project[];
+  contacts: Contact[];
+  onToggleComplete: (task: Task) => void;
+  onEdit: (task: Task) => void;
+  onDelete: (id: string) => void;
+  onAddSubtask: (parentId: string) => void;
+  subTasks: Task[];
+  level?: number;
+}
+
+function TaskItem({ 
+  task, 
+  projects, 
+  contacts, 
+  onToggleComplete, 
+  onEdit, 
+  onDelete,
+  onAddSubtask,
+  subTasks,
+  level = 0
+}: TaskItemProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const hasSubTasks = subTasks.length > 0;
+
+  const priorityColors = {
+    low: "bg-green-500/20 text-green-400 border-green-500/30",
+    medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
+    high: "bg-red-500/20 text-red-400 border-red-500/30",
+  };
+
+  return (
+    <div className={cn("space-y-1", level > 0 && "ml-6 border-l-2 border-muted pl-3")}>
+      <div
+        className={cn(
+          "flex items-start gap-3 p-3 rounded-lg border bg-card transition-colors hover:bg-accent/50 cursor-pointer",
+          task.completed && "opacity-60"
+        )}
+        onClick={() => onEdit(task)}
+      >
+        {hasSubTasks ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6 p-0 mt-0.5"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsExpanded(!isExpanded);
+            }}
+          >
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </Button>
+        ) : (
+          <div className="w-6" />
+        )}
+        <Checkbox
+          checked={task.completed}
+          onCheckedChange={() => onToggleComplete(task)}
+          onClick={(e) => e.stopPropagation()}
+          className="mt-1"
+        />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span
+              className={cn(
+                "font-medium",
+                task.completed && "line-through text-muted-foreground"
+              )}
+            >
+              {task.title}
+            </span>
+            <Badge variant="outline" className={priorityColors[task.priority]}>
+              {task.priority}
+            </Badge>
+            {task.visibility === "organization" && (
+              <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 gap-1">
+                <Building2 className="h-3 w-3" />
+                Shared
+              </Badge>
+            )}
+            {task.assigned_to && (
+              <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1">
+                <User className="h-3 w-3" />
+                {contacts.find(c => c.id === task.assigned_to)?.name || "Assigned"}
+              </Badge>
+            )}
+          </div>
+          {task.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {task.description}
+            </p>
+          )}
+          {task.due_date && (
+            <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
+              <Calendar className="h-3 w-3" />
+              {format(new Date(task.due_date), "MMM d, yyyy")}
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-primary"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAddSubtask(task.id);
+            }}
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete(task.id);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      </div>
+      {hasSubTasks && isExpanded && (
+        <div className="space-y-1">
+          {subTasks.map((subTask) => (
+            <TaskItem
+              key={subTask.id}
+              task={subTask}
+              projects={projects}
+              contacts={contacts}
+              onToggleComplete={onToggleComplete}
+              onEdit={onEdit}
+              onDelete={onDelete}
+              onAddSubtask={onAddSubtask}
+              subTasks={[]} // Sub-tasks don't have their own sub-tasks for now
+              level={level + 1}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TasksPanel() {
   const { currentOrg, context } = useOrganization();
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -46,7 +217,8 @@ export function TasksPanel() {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
-  const [filter, setFilter] = useState<"all" | "active" | "completed">("all");
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(["no-project"]));
+  const [showFinished, setShowFinished] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -57,6 +229,7 @@ export function TasksPanel() {
   const [organizationId, setOrganizationId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [assignedTo, setAssignedTo] = useState<string | null>(null);
+  const [parentTaskId, setParentTaskId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -71,7 +244,6 @@ export function TasksPanel() {
     ]);
     setTasks(tasksData);
     setProjects(projectsData);
-    // Filter to only show contacts (not leads) as responsible parties
     setContacts(contactsData.filter(c => c.contact_type === "contact"));
     setLoading(false);
   };
@@ -85,6 +257,7 @@ export function TasksPanel() {
     setOrganizationId(context.mode === "organization" && currentOrg ? currentOrg.id : null);
     setProjectId(null);
     setAssignedTo(null);
+    setParentTaskId(null);
     setEditingTask(null);
   };
 
@@ -99,8 +272,21 @@ export function TasksPanel() {
       setOrganizationId(task.organization_id);
       setProjectId(task.project_id);
       setAssignedTo(task.assigned_to);
+      setParentTaskId(task.parent_task_id);
     } else {
       resetForm();
+    }
+    setDialogOpen(true);
+  };
+
+  const handleAddSubtask = (parentId: string) => {
+    const parentTask = tasks.find(t => t.id === parentId);
+    resetForm();
+    setParentTaskId(parentId);
+    if (parentTask) {
+      setProjectId(parentTask.project_id);
+      setVisibility(parentTask.visibility);
+      setOrganizationId(parentTask.organization_id);
     }
     setDialogOpen(true);
   };
@@ -121,6 +307,7 @@ export function TasksPanel() {
       organization_id: organizationId,
       project_id: projectId,
       assigned_to: assignedTo,
+      parent_task_id: parentTaskId,
     };
 
     if (editingTask) {
@@ -134,7 +321,7 @@ export function TasksPanel() {
     } else {
       const created = await createTask(taskData);
       if (created) {
-        toast.success("Task created");
+        toast.success(parentTaskId ? "Sub-task created" : "Task created");
         loadData();
       } else {
         toast.error("Failed to create task");
@@ -158,23 +345,46 @@ export function TasksPanel() {
     const success = await deleteTask(id);
     if (success) {
       toast.success("Task deleted");
-      setTasks((prev) => prev.filter((t) => t.id !== id));
+      setTasks((prev) => prev.filter((t) => t.id !== id && t.parent_task_id !== id));
     } else {
       toast.error("Failed to delete task");
     }
   };
 
-  const filteredTasks = tasks.filter((task) => {
-    if (filter === "active") return !task.completed;
-    if (filter === "completed") return task.completed;
-    return true;
+  const toggleProjectExpand = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
+  // Separate active and completed tasks (only top-level)
+  const topLevelTasks = tasks.filter(t => !t.parent_task_id);
+  const activeTasks = sortTasks(topLevelTasks.filter(t => !t.completed));
+  const completedTasks = sortTasks(topLevelTasks.filter(t => t.completed));
+
+  // Group active tasks by project
+  const tasksByProject = new Map<string | null, Task[]>();
+  activeTasks.forEach(task => {
+    const key = task.project_id;
+    if (!tasksByProject.has(key)) {
+      tasksByProject.set(key, []);
+    }
+    tasksByProject.get(key)!.push(task);
   });
 
-  const priorityColors = {
-    low: "bg-green-500/20 text-green-400 border-green-500/30",
-    medium: "bg-yellow-500/20 text-yellow-400 border-yellow-500/30",
-    high: "bg-red-500/20 text-red-400 border-red-500/30",
-  };
+  // Get sub-tasks for a given parent
+  const getSubTasks = (parentId: string) => 
+    sortTasks(tasks.filter(t => t.parent_task_id === parentId));
+
+  // Projects with tasks
+  const projectsWithTasks = projects.filter(p => tasksByProject.has(p.id));
+  const noProjectTasks = tasksByProject.get(null) || [];
 
   if (loading) {
     return (
@@ -189,18 +399,8 @@ export function TasksPanel() {
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
-          <Select value={filter} onValueChange={(v) => setFilter(v as typeof filter)}>
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="completed">Completed</SelectItem>
-            </SelectContent>
-          </Select>
           <span className="text-sm text-muted-foreground">
-            {filteredTasks.length} task{filteredTasks.length !== 1 ? "s" : ""}
+            {activeTasks.length} active task{activeTasks.length !== 1 ? "s" : ""}
           </span>
         </div>
 
@@ -213,9 +413,16 @@ export function TasksPanel() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>{editingTask ? "Edit Task" : "New Task"}</DialogTitle>
+              <DialogTitle>
+                {editingTask ? "Edit Task" : parentTaskId ? "New Sub-task" : "New Task"}
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
+              {parentTaskId && (
+                <div className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                  Sub-task of: {tasks.find(t => t.id === parentTaskId)?.title}
+                </div>
+              )}
               <div className="space-y-2">
                 <Label htmlFor="title">Title</Label>
                 <Input
@@ -269,34 +476,36 @@ export function TasksPanel() {
                 }}
               />
 
-              {/* Project Selector */}
-              <div className="space-y-2">
-                <Label>Project</Label>
-                <Select 
-                  value={projectId || "none"} 
-                  onValueChange={(v) => setProjectId(v === "none" ? null : v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="No project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">
-                      <span className="text-muted-foreground">No project</span>
-                    </SelectItem>
-                    {projects.map((project) => (
-                      <SelectItem key={project.id} value={project.id}>
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: project.color || '#3B82F6' }} 
-                          />
-                          {project.name}
-                        </div>
+              {/* Project Selector - hidden for sub-tasks */}
+              {!parentTaskId && (
+                <div className="space-y-2">
+                  <Label>Project</Label>
+                  <Select 
+                    value={projectId || "none"} 
+                    onValueChange={(v) => setProjectId(v === "none" ? null : v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="No project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">
+                        <span className="text-muted-foreground">No project</span>
                       </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+                      {projects.map((project) => (
+                        <SelectItem key={project.id} value={project.id}>
+                          <div className="flex items-center gap-2">
+                            <div 
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: project.color || '#3B82F6' }} 
+                            />
+                            {project.name}
+                          </div>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {/* Responsible Party Selector */}
               <div className="space-y-2">
@@ -342,95 +551,120 @@ export function TasksPanel() {
 
       {/* Tasks List */}
       <ScrollArea className="flex-1">
-        {filteredTasks.length === 0 ? (
+        {activeTasks.length === 0 && completedTasks.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="text-muted-foreground mb-4">
-              {filter === "completed"
-                ? "No completed tasks yet"
-                : filter === "active"
-                ? "No active tasks"
-                : "No tasks yet"}
-            </div>
-            {filter === "all" && (
-              <Button variant="outline" onClick={() => handleOpenDialog()}>
-                Create your first task
-              </Button>
-            )}
+            <div className="text-muted-foreground mb-4">No tasks yet</div>
+            <Button variant="outline" onClick={() => handleOpenDialog()}>
+              Create your first task
+            </Button>
           </div>
         ) : (
-          <div className="space-y-2">
-            {filteredTasks.map((task) => (
-              <div
-                key={task.id}
-                className={cn(
-                  "flex items-start gap-3 p-4 rounded-lg border bg-card transition-colors hover:bg-accent/50 cursor-pointer",
-                  task.completed && "opacity-60"
-                )}
-                onClick={() => handleOpenDialog(task)}
+          <div className="space-y-4">
+            {/* No Project Tasks */}
+            {noProjectTasks.length > 0 && (
+              <Collapsible 
+                open={expandedProjects.has("no-project")} 
+                onOpenChange={() => toggleProjectExpand("no-project")}
               >
-                <Checkbox
-                  checked={task.completed}
-                  onCheckedChange={() => handleToggleComplete(task)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mt-1"
-                />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span
-                      className={cn(
-                        "font-medium",
-                        task.completed && "line-through text-muted-foreground"
-                      )}
-                    >
-                      {task.title}
-                    </span>
-                    <Badge variant="outline" className={priorityColors[task.priority]}>
-                      {task.priority}
-                    </Badge>
-                    {task.visibility === "organization" && (
-                      <Badge variant="outline" className="bg-blue-500/10 text-blue-500 border-blue-500/20 gap-1">
-                        <Building2 className="h-3 w-3" />
-                        Shared
-                      </Badge>
-                    )}
-                    {task.project_id && (
-                      <Badge variant="outline" className="bg-purple-500/10 text-purple-500 border-purple-500/20 gap-1">
-                        <FolderOpen className="h-3 w-3" />
-                        {projects.find(p => p.id === task.project_id)?.name || "Project"}
-                      </Badge>
-                    )}
-                    {task.assigned_to && (
-                      <Badge variant="outline" className="bg-orange-500/10 text-orange-500 border-orange-500/20 gap-1">
-                        <User className="h-3 w-3" />
-                        {contacts.find(c => c.id === task.assigned_to)?.name || "Assigned"}
-                      </Badge>
-                    )}
-                  </div>
-                  {task.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2">
-                      {task.description}
-                    </p>
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-accent/50 rounded-lg transition-colors">
+                  {expandedProjects.has("no-project") ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   )}
-                  {task.due_date && (
-                    <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
-                      <Calendar className="h-3 w-3" />
-                      {format(new Date(task.due_date), "MMM d, yyyy")}
-                    </div>
-                  )}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(task.id);
-                  }}
+                  <span className="font-medium text-muted-foreground">No Project</span>
+                  <Badge variant="secondary" className="ml-auto">{noProjectTasks.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  {noProjectTasks.map((task) => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      projects={projects}
+                      contacts={contacts}
+                      onToggleComplete={handleToggleComplete}
+                      onEdit={handleOpenDialog}
+                      onDelete={handleDelete}
+                      onAddSubtask={handleAddSubtask}
+                      subTasks={getSubTasks(task.id)}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
+
+            {/* Project Folders */}
+            {projectsWithTasks.map((project) => {
+              const projectTasks = tasksByProject.get(project.id) || [];
+              return (
+                <Collapsible 
+                  key={project.id}
+                  open={expandedProjects.has(project.id)} 
+                  onOpenChange={() => toggleProjectExpand(project.id)}
                 >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            ))}
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-accent/50 rounded-lg transition-colors">
+                    {expandedProjects.has(project.id) ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <FolderOpen className="h-4 w-4" style={{ color: project.color || '#3B82F6' }} />
+                    <span className="font-medium">{project.name}</span>
+                    <Badge variant="secondary" className="ml-auto">{projectTasks.length}</Badge>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-2 mt-2 ml-2">
+                    {projectTasks.map((task) => (
+                      <TaskItem
+                        key={task.id}
+                        task={task}
+                        projects={projects}
+                        contacts={contacts}
+                        onToggleComplete={handleToggleComplete}
+                        onEdit={handleOpenDialog}
+                        onDelete={handleDelete}
+                        onAddSubtask={handleAddSubtask}
+                        subTasks={getSubTasks(task.id)}
+                      />
+                    ))}
+                  </CollapsibleContent>
+                </Collapsible>
+              );
+            })}
+
+            {/* Finished Tasks */}
+            {completedTasks.length > 0 && (
+              <Collapsible 
+                open={showFinished} 
+                onOpenChange={setShowFinished}
+                className="mt-6"
+              >
+                <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 hover:bg-accent/50 rounded-lg transition-colors border-t pt-4">
+                  {showFinished ? (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                  )}
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                  <span className="font-medium text-muted-foreground">Finished Tasks</span>
+                  <Badge variant="secondary" className="ml-auto">{completedTasks.length}</Badge>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-2 mt-2">
+                  {completedTasks.map((task) => (
+                    <TaskItem
+                      key={task.id}
+                      task={task}
+                      projects={projects}
+                      contacts={contacts}
+                      onToggleComplete={handleToggleComplete}
+                      onEdit={handleOpenDialog}
+                      onDelete={handleDelete}
+                      onAddSubtask={handleAddSubtask}
+                      subTasks={getSubTasks(task.id)}
+                    />
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            )}
           </div>
         )}
       </ScrollArea>
