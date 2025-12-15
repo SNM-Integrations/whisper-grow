@@ -42,11 +42,35 @@ serve(async (req) => {
       });
     }
 
-    if (!user_id) {
-      return new Response(JSON.stringify({ error: 'user_id is required' }), {
+    if (!user_id && !organization_id) {
+      return new Response(JSON.stringify({ error: 'Either user_id or organization_id is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // Resolve user_id: use provided one, or look up org owner
+    let resolvedUserId = user_id;
+    
+    if (!resolvedUserId && organization_id) {
+      // Look up the organization owner
+      const { data: ownerMember, error: ownerError } = await supabaseAdmin
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', organization_id)
+        .eq('role', 'owner')
+        .single();
+      
+      if (ownerError || !ownerMember) {
+        console.error('Error finding org owner:', ownerError);
+        return new Response(JSON.stringify({ error: 'Could not find organization owner' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      
+      resolvedUserId = ownerMember.user_id;
+      console.log('Resolved org owner user_id:', resolvedUserId);
     }
 
     let companyRecord = null;
@@ -60,7 +84,7 @@ serve(async (req) => {
         .from('companies')
         .select('*')
         .eq('name', companyName)
-        .eq('user_id', user_id);
+        .eq('user_id', resolvedUserId);
       
       if (organization_id) {
         companyQuery = companyQuery.eq('organization_id', organization_id);
@@ -79,7 +103,7 @@ serve(async (req) => {
         // Create new company
         const companyData: Record<string, unknown> = {
           name: companyName,
-          user_id,
+          user_id: resolvedUserId,
           company_type: 'lead',
           visibility: organization_id ? 'organization' : (visibility || 'personal'),
         };
@@ -106,9 +130,9 @@ serve(async (req) => {
     // Prepare contact data
     const contactData: Record<string, unknown> = {
       name: name.trim().substring(0, 100),
-      user_id,
+      user_id: resolvedUserId,
       contact_type: contact_type || 'contact',
-      visibility: visibility || 'personal',
+      visibility: organization_id ? 'organization' : (visibility || 'personal'),
     };
 
     // Add optional fields if provided
