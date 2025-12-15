@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.crm-webhook]
 verify_jwt = false
+
+[functions.seventime-sync]
+verify_jwt = true
