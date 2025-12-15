@@ -6,10 +6,12 @@ import { ArrowLeft, Server, Brain, Database, Building2, Plug } from "lucide-reac
 import { OrganizationSettings } from "@/components/organization/OrganizationSettings";
 import { IntegrationSettings } from "@/components/settings/IntegrationSettings";
 import { useAuth } from "@/hooks/useAuth";
+import { useOrganization } from "@/hooks/useOrganization";
 import { AuthForm } from "@/components/auth/AuthForm";
 
 const Settings = () => {
   const { user, loading } = useAuth();
+  const { organizations } = useOrganization();
 
   if (loading) {
     return (
@@ -143,6 +145,34 @@ const Settings = () => {
                       Use this as <code className="bg-muted px-1 rounded">user_id</code> in webhook requests for personal resources.
                     </p>
                   </div>
+
+                  {organizations.length > 0 && (
+                    <div className="space-y-3 pt-2 border-t border-border">
+                      <label className="text-sm font-medium">Organization IDs</label>
+                      {organizations.map((org) => (
+                        <div key={org.id} className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-muted-foreground min-w-[100px]">{org.name}</span>
+                            <code className="text-xs bg-muted px-3 py-2 rounded flex-1 break-all">
+                              {org.id}
+                            </code>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(org.id);
+                              }}
+                            >
+                              Copy
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                      <p className="text-xs text-muted-foreground">
+                        Use as <code className="bg-muted px-1 rounded">organization_id</code> in webhook requests for organization resources.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
