@@ -27,7 +27,7 @@ import { Contact } from "./ContactsList";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OwnerSelector } from "@/components/organization/OwnerSelector";
-import { ResourceVisibility } from "@/hooks/useOrganization";
+import { useOrganization, ResourceVisibility } from "@/hooks/useOrganization";
 
 interface ContactDialogProps {
   open: boolean;
@@ -44,6 +44,7 @@ interface ContactFormData {
 }
 
 export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
+  const { currentOrg, context } = useOrganization();
   const [isSaving, setIsSaving] = useState(false);
   const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
     visibility: "personal",
@@ -58,6 +59,12 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
       company: "",
       relationship: "network",
     },
+  });
+
+  // Set default owner based on current context
+  const getDefaultOwner = () => ({
+    visibility: (context.mode === "organization" && currentOrg ? "organization" : "personal") as ResourceVisibility,
+    organizationId: context.mode === "organization" && currentOrg ? currentOrg.id : null,
   });
 
   useEffect(() => {
@@ -81,9 +88,9 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
         company: "",
         relationship: "network",
       });
-      setOwner({ visibility: "personal", organizationId: null });
+      setOwner(getDefaultOwner());
     }
-  }, [contact, form]);
+  }, [contact, form, open]);
 
   const onSubmit = async (data: ContactFormData) => {
     setIsSaving(true);
