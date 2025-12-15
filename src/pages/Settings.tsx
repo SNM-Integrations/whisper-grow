@@ -110,6 +110,43 @@ const Settings = () => {
               </CardContent>
             </Card>
 
+            {/* Account IDs for Webhooks */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="h-5 w-5" />
+                  Account IDs
+                </CardTitle>
+                <CardDescription>
+                  Use these IDs for webhook integrations (e.g., CRM webhook)
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Your User ID</label>
+                    <div className="flex items-center gap-2">
+                      <code className="text-xs bg-muted px-3 py-2 rounded flex-1 break-all">
+                        {user.id}
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          navigator.clipboard.writeText(user.id);
+                        }}
+                      >
+                        Copy
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Use this as <code className="bg-muted px-1 rounded">user_id</code> in webhook requests for personal resources.
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
             {/* Data & Storage */}
             <Card>
               <CardHeader>
