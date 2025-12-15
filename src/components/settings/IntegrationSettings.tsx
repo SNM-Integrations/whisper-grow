@@ -51,12 +51,22 @@ export const IntegrationSettings = () => {
   const isOrgContext = context.mode === "organization" && currentOrg;
   const contextLabel = isOrgContext ? currentOrg.name : "Personal";
 
+  // Track if we've already fetched for current context to prevent losing unsaved changes
+  const [hasFetched, setHasFetched] = useState(false);
+  const contextKey = isOrgContext && currentOrg ? currentOrg.id : "personal";
+
   useEffect(() => {
-    if (user) {
+    if (user && !hasFetched) {
       fetchSettings();
       fetchSlackMapping();
+      setHasFetched(true);
     }
-  }, [user, context]);
+  }, [user, hasFetched]);
+
+  // Reset hasFetched when context changes so we fetch new data
+  useEffect(() => {
+    setHasFetched(false);
+  }, [contextKey]);
 
   const fetchSettings = async () => {
     if (!user) return;
