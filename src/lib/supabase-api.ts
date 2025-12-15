@@ -88,6 +88,7 @@ export interface Task {
   category_id: string | null;
   project_id: string | null;
   assigned_to: string | null;
+  parent_task_id: string | null;
   visibility: "personal" | "organization";
   organization_id: string | null;
   created_at: string;
