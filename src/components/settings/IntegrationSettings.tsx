@@ -22,6 +22,11 @@ interface IntegrationConfig {
     bot_token?: string;
     signing_secret?: string;
   };
+  seventime?: {
+    default_user_id?: string;
+    customer_responsible_id?: string;
+    parttime_users?: string;
+  };
 }
 
 export const IntegrationSettings = () => {
@@ -47,6 +52,11 @@ export const IntegrationSettings = () => {
   const [slackUserId, setSlackUserId] = useState("");
   const [slackWorkspaceId, setSlackWorkspaceId] = useState("");
   const [slackLinked, setSlackLinked] = useState(false);
+
+  // SevenTime settings
+  const [seventimeDefaultUserId, setSeventimeDefaultUserId] = useState("");
+  const [seventimeCustomerResponsibleId, setSeventimeCustomerResponsibleId] = useState("");
+  const [seventimeParttimeUsers, setSeventimeParttimeUsers] = useState("");
 
   const isOrgContext = context.mode === "organization" && currentOrg;
   const contextLabel = isOrgContext ? currentOrg.name : "Personal";
@@ -101,6 +111,10 @@ export const IntegrationSettings = () => {
           setSlackBotToken((settingsData?.bot_token as string) || "");
           setSlackSigningSecret((settingsData?.signing_secret as string) || "");
           setSlackNotificationChannel((settingsData?.notification_channel as string) || "");
+        } else if (setting.integration_type === "seventime") {
+          setSeventimeDefaultUserId((settingsData?.default_user_id as string) || "");
+          setSeventimeCustomerResponsibleId((settingsData?.customer_responsible_id as string) || "");
+          setSeventimeParttimeUsers((settingsData?.parttime_users as string) || "");
         }
       });
     } catch (error) {
@@ -217,6 +231,14 @@ export const IntegrationSettings = () => {
       bot_token: slackBotToken,
       signing_secret: slackSigningSecret,
       notification_channel: slackNotificationChannel,
+    });
+  };
+
+  const handleSaveSeventime = () => {
+    saveIntegration("seventime", {
+      default_user_id: seventimeDefaultUserId,
+      customer_responsible_id: seventimeCustomerResponsibleId,
+      parttime_users: seventimeParttimeUsers,
     });
   };
 
@@ -353,6 +375,7 @@ export const IntegrationSettings = () => {
           <TabsTrigger value="google">Google</TabsTrigger>
           <TabsTrigger value="n8n">n8n</TabsTrigger>
           <TabsTrigger value="slack">Slack</TabsTrigger>
+          <TabsTrigger value="seventime">SevenTime</TabsTrigger>
         </TabsList>
 
         <TabsContent value="google">
@@ -673,6 +696,82 @@ export const IntegrationSettings = () => {
                     Unlink
                   </Button>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="seventime">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <span className="text-lg">🔧</span>
+                SevenTime Integration
+              </CardTitle>
+              <CardDescription>
+                Configure SevenTime integration for work order management.
+                Get your API key from SevenTime Settings → Integrations → API.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="seventime-default-user">Default User ID (Yousif)</Label>
+                <Input
+                  id="seventime-default-user"
+                  value={seventimeDefaultUserId}
+                  onChange={(e) => setSeventimeDefaultUserId(e.target.value)}
+                  placeholder="SevenTime User ID"
+                />
+                <p className="text-xs text-muted-foreground">
+                  User ID for creating orders and customers. Find in SevenTime user settings.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seventime-customer-responsible">Customer Responsible ID (Lai)</Label>
+                <Input
+                  id="seventime-customer-responsible"
+                  value={seventimeCustomerResponsibleId}
+                  onChange={(e) => setSeventimeCustomerResponsibleId(e.target.value)}
+                  placeholder="SevenTime User ID for customer responsible"
+                />
+                <p className="text-xs text-muted-foreground">
+                  User ID assigned as customer responsible (Kundansvarig).
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="seventime-parttime-users">Part-Time Users (EMS)</Label>
+                <Input
+                  id="seventime-parttime-users"
+                  value={seventimeParttimeUsers}
+                  onChange={(e) => setSeventimeParttimeUsers(e.target.value)}
+                  placeholder="User ID 1, User ID 2"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated list of user IDs for part-time workers on work orders.
+                </p>
+              </div>
+
+              <div className="pt-2">
+                <Button onClick={handleSaveSeventime} disabled={saving}>
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Check className="h-4 w-4 mr-2" />
+                  )}
+                  Save SevenTime Settings
+                </Button>
+              </div>
+
+              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
+                <p><strong>How to find User IDs in SevenTime:</strong></p>
+                <ol className="list-decimal list-inside ml-2 space-y-1">
+                  <li>Go to Settings → Users in SevenTime</li>
+                  <li>Click on a user to view their details</li>
+                  <li>Copy the ID from the URL or API response</li>
+                </ol>
+                <p className="pt-2"><strong>Note:</strong> The API key is configured as an environment secret (SEVENTIME_API_KEY).</p>
               </div>
             </CardContent>
           </Card>
