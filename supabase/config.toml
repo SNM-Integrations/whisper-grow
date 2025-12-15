@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.task-notifications]
 verify_jwt = false
+
+[functions.crm-webhook]
+verify_jwt = false
