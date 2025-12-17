@@ -553,6 +553,8 @@ const Index = () => {
                   <TabsContent value="contacts" className="flex-1 overflow-auto mt-0">
                     <ContactsList 
                       onNavigateToCompany={handleNavigateToCompany}
+                      selectedContactId={selectedContactId}
+                      onContactSelected={setSelectedContactId}
                     />
                   </TabsContent>
                   <TabsContent value="leads" className="flex-1 overflow-auto mt-0">

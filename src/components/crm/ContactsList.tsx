@@ -44,9 +44,15 @@ const relationshipColors: Record<Contact["relationship"], string> = {
 
 interface ContactsListProps {
   onNavigateToCompany?: (companyId: string) => void;
+  selectedContactId?: string | null;
+  onContactSelected?: (contactId: string | null) => void;
 }
 
-export function ContactsList({ onNavigateToCompany }: ContactsListProps) {
+export function ContactsList({ 
+  onNavigateToCompany, 
+  selectedContactId, 
+  onContactSelected 
+}: ContactsListProps) {
   const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -102,6 +108,17 @@ export function ContactsList({ onNavigateToCompany }: ContactsListProps) {
   useEffect(() => {
     loadContacts();
   }, [context]);
+
+  // Auto-open dialog when selectedContactId changes
+  useEffect(() => {
+    if (selectedContactId && contacts.length > 0) {
+      const contact = contacts.find(c => c.id === selectedContactId);
+      if (contact) {
+        handleEdit(contact);
+        onContactSelected?.(null); // Clear selection after opening
+      }
+    }
+  }, [selectedContactId, contacts]);
 
   const filteredContacts = contacts.filter(
     (contact) =>
