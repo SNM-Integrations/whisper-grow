@@ -28,12 +28,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OwnerSelector } from "@/components/organization/OwnerSelector";
 import { useOrganization, ResourceVisibility } from "@/hooks/useOrganization";
-import { Building2 } from "lucide-react";
+import { Building2, ExternalLink } from "lucide-react";
 
 interface ContactDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   contact: Contact | null;
+  onNavigateToCompany?: (companyId: string) => void;
 }
 
 interface ContactFormData {
@@ -49,7 +50,7 @@ interface CompanyOption {
   name: string;
 }
 
-export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
+export function ContactDialog({ open, onOpenChange, contact, onNavigateToCompany }: ContactDialogProps) {
   const { currentOrg, context } = useOrganization();
   const [isSaving, setIsSaving] = useState(false);
   const [companies, setCompanies] = useState<CompanyOption[]>([]);
@@ -68,28 +69,23 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
     },
   });
 
-  // Load companies for dropdown
+  const selectedCompanyId = form.watch("company_id");
+
+  // Load ALL accessible companies (not just current context) so we can always show linked company
   useEffect(() => {
     const loadCompanies = async () => {
-      let query = supabase
+      const { data } = await supabase
         .from("companies")
         .select("id, name")
         .order("name", { ascending: true });
-
-      if (context.mode === "personal") {
-        query = query.eq("visibility", "personal");
-      } else if (context.mode === "organization" && context.organizationId) {
-        query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
-      }
-
-      const { data } = await query;
+      
       setCompanies(data || []);
     };
 
     if (open) {
       loadCompanies();
     }
-  }, [open, context]);
+  }, [open]);
 
   // Set default owner based on current context
   const getDefaultOwner = () => ({
@@ -174,6 +170,13 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
     onOpenChange(false);
   };
 
+  const handleViewCompany = () => {
+    if (selectedCompanyId && onNavigateToCompany) {
+      onOpenChange(false);
+      onNavigateToCompany(selectedCompanyId);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-card border-border sm:max-w-[425px]">
@@ -228,31 +231,39 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Company</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="bg-background">
-                        <SelectValue placeholder="Select a company">
-                          {field.value && (
+                  <div className="flex gap-2">
+                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                      <FormControl>
+                        <SelectTrigger className="bg-background flex-1">
+                          <SelectValue placeholder="Select a company">
+                            {field.value && companies.find(c => c.id === field.value)?.name}
+                          </SelectValue>
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-popover border-border">
+                        <SelectItem value="none">No company</SelectItem>
+                        {companies.map((company) => (
+                          <SelectItem key={company.id} value={company.id}>
                             <span className="flex items-center gap-2">
                               <Building2 className="h-4 w-4" />
-                              {companies.find(c => c.id === field.value)?.name}
+                              {company.name}
                             </span>
-                          )}
-                        </SelectValue>
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="bg-popover border-border">
-                      <SelectItem value="">No company</SelectItem>
-                      {companies.map((company) => (
-                        <SelectItem key={company.id} value={company.id}>
-                          <span className="flex items-center gap-2">
-                            <Building2 className="h-4 w-4" />
-                            {company.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {field.value && field.value !== "none" && onNavigateToCompany && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={handleViewCompany}
+                        title="View Company"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
@@ -263,7 +274,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Relationship</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="bg-background">
                         <SelectValue placeholder="Select relationship" />
