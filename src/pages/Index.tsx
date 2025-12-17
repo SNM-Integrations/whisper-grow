@@ -36,6 +36,7 @@ import NotesPanel from "@/components/notes/NotesPanel";
 import SearchPanel from "@/components/search/SearchPanel";
 import { CalendarView } from "@/components/calendar/CalendarView";
 import { ContactsList } from "@/components/crm/ContactsList";
+import { LeadsList } from "@/components/crm/LeadsList";
 import { DealsPipeline } from "@/components/crm/DealsPipeline";
 import { CompaniesList } from "@/components/crm/CompaniesList";
 import { TasksPanel } from "@/components/tasks/TasksPanel";
@@ -64,7 +65,7 @@ const Index = () => {
   const [activeTab, setActiveTab] = useState<MainTab>("chat");
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [crmSubTab, setCrmSubTab] = useState<"contacts" | "deals" | "companies">("contacts");
+  const [crmSubTab, setCrmSubTab] = useState<"contacts" | "leads" | "deals" | "companies">("contacts");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -531,12 +532,16 @@ const Index = () => {
                   <div className="px-4 pt-2">
                     <TabsList>
                       <TabsTrigger value="contacts">Contacts</TabsTrigger>
+                      <TabsTrigger value="leads">Leads</TabsTrigger>
                       <TabsTrigger value="deals">Deals</TabsTrigger>
                       <TabsTrigger value="companies">Companies</TabsTrigger>
                     </TabsList>
                   </div>
                   <TabsContent value="contacts" className="flex-1 overflow-auto mt-0">
                     <ContactsList />
+                  </TabsContent>
+                  <TabsContent value="leads" className="flex-1 overflow-auto mt-0">
+                    <LeadsList />
                   </TabsContent>
                   <TabsContent value="deals" className="flex-1 overflow-auto mt-0">
                     <DealsPipeline />
