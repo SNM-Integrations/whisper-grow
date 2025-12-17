@@ -274,6 +274,7 @@ export function ContactsList({ onNavigateToCompany }: ContactsListProps) {
         open={dialogOpen}
         onOpenChange={handleDialogClose}
         contact={editingContact}
+        onNavigateToCompany={onNavigateToCompany}
       />
     </div>
   );
