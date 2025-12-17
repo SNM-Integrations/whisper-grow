@@ -177,7 +177,11 @@ export function ContactsList() {
               </TableRow>
             ) : (
               filteredContacts.map((contact) => (
-                <TableRow key={contact.id} className="cursor-pointer">
+                <TableRow 
+                  key={contact.id} 
+                  className="cursor-pointer hover:bg-muted/50"
+                  onClick={() => handleEdit(contact)}
+                >
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9">
@@ -201,7 +205,7 @@ export function ContactsList() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{contact.lastContact}</TableCell>
-                  <TableCell>
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon" className="h-8 w-8">
