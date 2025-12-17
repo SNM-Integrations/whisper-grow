@@ -213,6 +213,7 @@ export type Database = {
           assigned_to: string | null
           city: string | null
           company: string | null
+          company_id: string | null
           contact_type: Database["public"]["Enums"]["contact_type"]
           created_at: string
           email: string | null
@@ -241,6 +242,7 @@ export type Database = {
           assigned_to?: string | null
           city?: string | null
           company?: string | null
+          company_id?: string | null
           contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
@@ -269,6 +271,7 @@ export type Database = {
           assigned_to?: string | null
           city?: string | null
           company?: string | null
+          company_id?: string | null
           contact_type?: Database["public"]["Enums"]["contact_type"]
           created_at?: string
           email?: string | null
@@ -293,6 +296,13 @@ export type Database = {
           zip_code?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "contacts_organization_id_fkey"
             columns: ["organization_id"]

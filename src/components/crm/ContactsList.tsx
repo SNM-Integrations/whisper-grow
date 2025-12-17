@@ -17,7 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, MoreHorizontal, Mail, Phone, Edit, Trash2, Building2 } from "lucide-react";
 import { ContactDialog } from "./ContactDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -29,6 +29,7 @@ export interface Contact {
   email: string;
   phone: string;
   company: string;
+  company_id: string | null;
   relationship: "friend" | "colleague" | "partner" | "network";
   lastContact: string;
   assigned_to: string | null;
@@ -41,7 +42,11 @@ const relationshipColors: Record<Contact["relationship"], string> = {
   network: "bg-purple-500/10 text-purple-500 border-purple-500/20",
 };
 
-export function ContactsList() {
+interface ContactsListProps {
+  onNavigateToCompany?: (companyId: string) => void;
+}
+
+export function ContactsList({ onNavigateToCompany }: ContactsListProps) {
   const { context } = useOrganization();
   const [search, setSearch] = useState("");
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -83,6 +88,7 @@ export function ContactsList() {
             email: c.email || "",
             phone: c.phone || "",
             company: c.company || "",
+            company_id: c.company_id || null,
             relationship,
             lastContact: new Date(c.updated_at).toLocaleDateString(),
             assigned_to: c.assigned_to,
@@ -128,6 +134,13 @@ export function ContactsList() {
     setDialogOpen(open);
     if (!open) {
       loadContacts(); // Refresh list after dialog closes
+    }
+  };
+
+  const handleCompanyClick = (e: React.MouseEvent, companyId: string | null) => {
+    e.stopPropagation();
+    if (companyId && onNavigateToCompany) {
+      onNavigateToCompany(companyId);
     }
   };
 
@@ -198,7 +211,19 @@ export function ContactsList() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{contact.company}</TableCell>
+                  <TableCell>
+                    {contact.company_id ? (
+                      <button
+                        onClick={(e) => handleCompanyClick(e, contact.company_id)}
+                        className="flex items-center gap-1.5 text-primary hover:underline"
+                      >
+                        <Building2 className="h-4 w-4" />
+                        {contact.company}
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground">{contact.company || "-"}</span>
+                    )}
+                  </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={relationshipColors[contact.relationship]}>
                       {contact.relationship.charAt(0).toUpperCase() + contact.relationship.slice(1)}
