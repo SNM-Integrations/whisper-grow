@@ -66,6 +66,8 @@ const Index = () => {
   const [chatPanelOpen, setChatPanelOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [crmSubTab, setCrmSubTab] = useState<"contacts" | "leads" | "deals" | "companies">("contacts");
+  const [selectedCompanyId, setSelectedCompanyId] = useState<string | null>(null);
+  const [selectedContactId, setSelectedContactId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -210,6 +212,17 @@ const Index = () => {
       setChatPanelOpen(false);
     }
     setActiveTab(tab);
+  };
+
+  // CRM navigation handlers
+  const handleNavigateToCompany = (companyId: string) => {
+    setSelectedCompanyId(companyId);
+    setCrmSubTab("companies");
+  };
+
+  const handleNavigateToContact = (contactId: string) => {
+    setSelectedContactId(contactId);
+    setCrmSubTab("contacts");
   };
 
   // When on a non-chat tab, show chat as side panel
@@ -538,7 +551,9 @@ const Index = () => {
                     </TabsList>
                   </div>
                   <TabsContent value="contacts" className="flex-1 overflow-auto mt-0">
-                    <ContactsList />
+                    <ContactsList 
+                      onNavigateToCompany={handleNavigateToCompany}
+                    />
                   </TabsContent>
                   <TabsContent value="leads" className="flex-1 overflow-auto mt-0">
                     <LeadsList />
@@ -547,7 +562,11 @@ const Index = () => {
                     <DealsPipeline />
                   </TabsContent>
                   <TabsContent value="companies" className="flex-1 overflow-auto mt-0">
-                    <CompaniesList />
+                    <CompaniesList 
+                      onNavigateToContact={handleNavigateToContact}
+                      selectedCompanyId={selectedCompanyId}
+                      onCompanySelected={setSelectedCompanyId}
+                    />
                   </TabsContent>
                 </Tabs>
               </div>

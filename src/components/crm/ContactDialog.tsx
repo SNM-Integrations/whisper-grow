@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { OwnerSelector } from "@/components/organization/OwnerSelector";
 import { useOrganization, ResourceVisibility } from "@/hooks/useOrganization";
+import { Building2 } from "lucide-react";
 
 interface ContactDialogProps {
   open: boolean;
@@ -39,13 +40,19 @@ interface ContactFormData {
   name: string;
   email: string;
   phone: string;
-  company: string;
+  company_id: string;
   relationship: Contact["relationship"];
+}
+
+interface CompanyOption {
+  id: string;
+  name: string;
 }
 
 export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProps) {
   const { currentOrg, context } = useOrganization();
   const [isSaving, setIsSaving] = useState(false);
+  const [companies, setCompanies] = useState<CompanyOption[]>([]);
   const [owner, setOwner] = useState<{ visibility: ResourceVisibility; organizationId: string | null }>({
     visibility: "personal",
     organizationId: null,
@@ -56,10 +63,33 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
       name: "",
       email: "",
       phone: "",
-      company: "",
+      company_id: "",
       relationship: "network",
     },
   });
+
+  // Load companies for dropdown
+  useEffect(() => {
+    const loadCompanies = async () => {
+      let query = supabase
+        .from("companies")
+        .select("id, name")
+        .order("name", { ascending: true });
+
+      if (context.mode === "personal") {
+        query = query.eq("visibility", "personal");
+      } else if (context.mode === "organization" && context.organizationId) {
+        query = query.eq("visibility", "organization").eq("organization_id", context.organizationId);
+      }
+
+      const { data } = await query;
+      setCompanies(data || []);
+    };
+
+    if (open) {
+      loadCompanies();
+    }
+  }, [open, context]);
 
   // Set default owner based on current context
   const getDefaultOwner = () => ({
@@ -73,7 +103,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
         name: contact.name,
         email: contact.email,
         phone: contact.phone,
-        company: contact.company,
+        company_id: contact.company_id || "",
         relationship: contact.relationship,
       });
       setOwner({
@@ -85,7 +115,7 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
         name: "",
         email: "",
         phone: "",
-        company: "",
+        company_id: "",
         relationship: "network",
       });
       setOwner(getDefaultOwner());
@@ -102,11 +132,15 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
       return;
     }
 
+    // Get company name if company_id is selected
+    const selectedCompany = companies.find(c => c.id === data.company_id);
+
     const contactData = {
       name: data.name,
       email: data.email || null,
       phone: data.phone || null,
-      company: data.company || null,
+      company_id: data.company_id || null,
+      company: selectedCompany?.name || null,
       contact_type: "contact" as const,
       tags: [data.relationship],
       visibility: owner.visibility,
@@ -190,13 +224,35 @@ export function ContactDialog({ open, onOpenChange, contact }: ContactDialogProp
             />
             <FormField
               control={form.control}
-              name="company"
+              name="company_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Company</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Acme Corp" {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger className="bg-background">
+                        <SelectValue placeholder="Select a company">
+                          {field.value && (
+                            <span className="flex items-center gap-2">
+                              <Building2 className="h-4 w-4" />
+                              {companies.find(c => c.id === field.value)?.name}
+                            </span>
+                          )}
+                        </SelectValue>
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent className="bg-popover border-border">
+                      <SelectItem value="">No company</SelectItem>
+                      {companies.map((company) => (
+                        <SelectItem key={company.id} value={company.id}>
+                          <span className="flex items-center gap-2">
+                            <Building2 className="h-4 w-4" />
+                            {company.name}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

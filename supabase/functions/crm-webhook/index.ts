@@ -139,6 +139,7 @@ serve(async (req) => {
     if (email) contactData.email = email.trim().substring(0, 255);
     if (phone) contactData.phone = phone.trim().substring(0, 50);
     if (company) contactData.company = company.trim().substring(0, 100);
+    if (companyRecord) contactData.company_id = companyRecord.id; // Link to company
     if (role) contactData.role = role.trim().substring(0, 100);
     if (notes) contactData.notes = notes.trim().substring(0, 5000);
     if (tags && Array.isArray(tags)) contactData.tags = tags.map((t: string) => t.trim().substring(0, 50));
