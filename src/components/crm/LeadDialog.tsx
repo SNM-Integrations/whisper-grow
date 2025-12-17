@@ -205,9 +205,48 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
       return;
     }
 
-    // Save form first
-    await onSubmit(formValues);
+    // Save form first without closing dialog
+    setIsSaving(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Not authenticated");
+      setIsSaving(false);
+      return;
+    }
 
+    const leadData = {
+      name: formValues.name,
+      email: formValues.email || null,
+      phone: formValues.phone || null,
+      company: formValues.company || null,
+      contact_type: "lead" as const,
+      tags: [formValues.status],
+      visibility: owner.visibility,
+      organization_id: owner.organizationId,
+      personal_number: formValues.personal_number || null,
+      address: formValues.address || null,
+      zip_code: formValues.zip_code || null,
+      city: formValues.city || null,
+      job_description: formValues.job_description || null,
+      rot_rut_info: formValues.rot_rut_info || null,
+      estimated_hours: formValues.estimated_hours ? parseFloat(formValues.estimated_hours) : null,
+      start_date: formValues.start_date || null,
+      end_date: formValues.end_date || null,
+    };
+
+    const { error: saveError } = await supabase
+      .from("contacts")
+      .update({ ...leadData, updated_at: new Date().toISOString() })
+      .eq("id", lead.id);
+
+    if (saveError) {
+      toast.error("Failed to save lead");
+      setIsSaving(false);
+      return;
+    }
+    setIsSaving(false);
+
+    // Now sync to SevenTime
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.functions.invoke('seventime-sync', {
@@ -218,11 +257,13 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
       });
 
       if (error) {
+        console.error('SevenTime error:', error);
         throw error;
       }
 
       if (data.error) {
-        toast.error(data.error);
+        console.error('SevenTime API error:', data.error, data.details);
+        toast.error(data.error + (data.details ? `: ${data.details}` : ''));
       } else {
         toast.success("Work order created in SevenTime!");
         onOpenChange(false);
