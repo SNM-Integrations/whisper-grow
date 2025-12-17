@@ -169,37 +169,40 @@ export function DealsPipeline() {
                 <Card
                   key={deal.id}
                   className="cursor-pointer hover:shadow-md transition-shadow bg-card border-border"
+                  onClick={() => handleEdit(deal)}
                 >
                   <CardHeader className="p-4 pb-2">
                     <div className="flex items-start justify-between">
                       <CardTitle className="text-sm font-medium line-clamp-2">
                         {deal.title}
                       </CardTitle>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-6 w-6 shrink-0"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="bg-popover border-border">
-                          <DropdownMenuItem
-                            onClick={() => handleEdit(deal)}
-                            className="cursor-pointer"
-                          >
-                            Edit Deal
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="cursor-pointer text-destructive focus:text-destructive"
-                            onClick={() => handleDelete(deal.id)}
-                          >
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6 shrink-0"
+                            >
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="bg-popover border-border">
+                            <DropdownMenuItem
+                              onClick={() => handleEdit(deal)}
+                              className="cursor-pointer"
+                            >
+                              Edit Deal
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer text-destructive focus:text-destructive"
+                              onClick={() => handleDelete(deal.id)}
+                            >
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="p-4 pt-0 space-y-3">
