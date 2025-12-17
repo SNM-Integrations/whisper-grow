@@ -53,15 +53,15 @@ serve(async (req) => {
     let resolvedUserId = user_id;
     
     if (!resolvedUserId && organization_id) {
-      // Look up the organization owner
-      const { data: ownerMember, error: ownerError } = await supabaseAdmin
+      // Look up the organization owner (use limit(1) in case of multiple owners)
+      const { data: ownerMembers, error: ownerError } = await supabaseAdmin
         .from('organization_members')
         .select('user_id')
         .eq('organization_id', organization_id)
         .eq('role', 'owner')
-        .single();
+        .limit(1);
       
-      if (ownerError || !ownerMember) {
+      if (ownerError || !ownerMembers || ownerMembers.length === 0) {
         console.error('Error finding org owner:', ownerError);
         return new Response(JSON.stringify({ error: 'Could not find organization owner' }), {
           status: 400,
@@ -69,7 +69,7 @@ serve(async (req) => {
         });
       }
       
-      resolvedUserId = ownerMember.user_id;
+      resolvedUserId = ownerMembers[0].user_id;
       console.log('Resolved org owner user_id:', resolvedUserId);
     }
 
