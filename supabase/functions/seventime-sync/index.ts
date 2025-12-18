@@ -164,8 +164,9 @@ serve(async (req) => {
       title: contact.name,
       customer: seventimeCustomerId,
       description: descriptionParts.join('\n'),
-      users: [defaultUserId],
+      users: customerResponsibleId ? [customerResponsibleId] : [defaultUserId],
       marking: contact.name,
+      workOrderResponsible: customerResponsibleId || defaultUserId,
     };
 
     // Add part-time users if configured
