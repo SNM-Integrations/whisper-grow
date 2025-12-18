@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useOrganization } from "@/hooks/useOrganization";
-import { Loader2, Eye, EyeOff, Check, AlertCircle } from "lucide-react";
+import { Loader2, Eye, EyeOff, Check, AlertCircle, Link2, Unlink, RefreshCw } from "lucide-react";
 
 interface IntegrationConfig {
   google?: {
@@ -58,6 +58,16 @@ export const IntegrationSettings = () => {
   const [seventimeCustomerResponsibleId, setSeventimeCustomerResponsibleId] = useState("");
   const [seventimeParttimeUsers, setSeventimeParttimeUsers] = useState("");
 
+  // Google connected accounts
+  const [connectedGoogleAccounts, setConnectedGoogleAccounts] = useState<Array<{
+    id: string;
+    google_email: string | null;
+    display_name: string | null;
+    scopes: string[] | null;
+    created_at: string;
+  }>>([]);
+  const [connectingGoogle, setConnectingGoogle] = useState(false);
+
   const isOrgContext = context.mode === "organization" && currentOrg;
   const contextLabel = isOrgContext ? currentOrg.name : "Personal";
 
@@ -69,6 +79,7 @@ export const IntegrationSettings = () => {
     if (user && !hasFetched) {
       fetchSettings();
       fetchSlackMapping();
+      fetchConnectedGoogleAccounts();
       setHasFetched(true);
     }
   }, [user, hasFetched]);
@@ -218,6 +229,109 @@ export const IntegrationSettings = () => {
       client_id: googleClientId,
       client_secret: googleClientSecret,
     });
+  };
+
+  const fetchConnectedGoogleAccounts = async () => {
+    if (!user) return;
+    
+    try {
+      const query = supabase
+        .from("google_auth_tokens")
+        .select("id, google_email, display_name, scopes, created_at")
+        .eq("user_id", user.id);
+
+      if (isOrgContext && currentOrg) {
+        query.eq("organization_id", currentOrg.id);
+      } else {
+        query.is("organization_id", null);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setConnectedGoogleAccounts(data || []);
+    } catch (error) {
+      console.error("Error fetching connected Google accounts:", error);
+    }
+  };
+
+  const handleConnectGoogle = async () => {
+    if (!user) return;
+    
+    setConnectingGoogle(true);
+    try {
+      const supabaseUrl = "https://pccvvqmrwbcdjgkyteqn.supabase.co";
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      if (!accessToken) {
+        throw new Error("No session found. Please log in again.");
+      }
+
+      // Build OAuth URL with organization context
+      const params = new URLSearchParams({
+        action: "authorize",
+      });
+      if (isOrgContext && currentOrg) {
+        params.append("organization_id", currentOrg.id);
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/google-oauth?${params.toString()}`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+      
+      if (data.url) {
+        // Redirect to Google OAuth
+        window.location.href = data.url;
+      } else {
+        throw new Error(data.error || "Failed to get OAuth URL");
+      }
+    } catch (error) {
+      console.error("Error initiating Google OAuth:", error);
+      toast({
+        title: "Error connecting Google",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingGoogle(false);
+    }
+  };
+
+  const handleDisconnectGoogle = async (tokenId: string) => {
+    if (!user) return;
+    
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("google_auth_tokens")
+        .delete()
+        .eq("id", tokenId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      setConnectedGoogleAccounts(prev => prev.filter(a => a.id !== tokenId));
+      toast({
+        title: "Google account disconnected",
+        description: "The Google account has been removed.",
+      });
+    } catch (error) {
+      console.error("Error disconnecting Google:", error);
+      toast({
+        title: "Error disconnecting",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSaveN8n = () => {
@@ -390,78 +504,85 @@ export const IntegrationSettings = () => {
                 Google OAuth
               </CardTitle>
               <CardDescription>
-                Configure Google OAuth for Drive, Calendar, and Gmail integration.
-                Get credentials from the <a 
-                  href="https://console.cloud.google.com/apis/credentials" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-primary underline"
-                >
-                  Google Cloud Console
-                </a>.
+                Connect your Google account for Drive, Calendar, and Gmail integration.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="google-client-id">Client ID</Label>
-                <Input
-                  id="google-client-id"
-                  value={googleClientId}
-                  onChange={(e) => setGoogleClientId(e.target.value)}
-                  placeholder="xxxxxxxx.apps.googleusercontent.com"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="google-client-secret">Client Secret</Label>
-                <div className="relative">
-                  <Input
-                    id="google-client-secret"
-                    type={showSecrets["google-secret"] ? "text" : "password"}
-                    value={googleClientSecret}
-                    onChange={(e) => setGoogleClientSecret(e.target.value)}
-                    placeholder="GOCSPX-xxxxxxxx"
-                    className="pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
+            <CardContent className="space-y-6">
+              {/* Connected Accounts Section */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-base">Connected Accounts</Label>
+                  <Button 
+                    onClick={handleConnectGoogle} 
+                    disabled={connectingGoogle}
                     size="sm"
-                    className="absolute right-0 top-0 h-full px-3"
-                    onClick={() => toggleShowSecret("google-secret")}
                   >
-                    {showSecrets["google-secret"] ? (
-                      <EyeOff className="h-4 w-4" />
+                    {connectingGoogle ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
                     ) : (
-                      <Eye className="h-4 w-4" />
+                      <Link2 className="h-4 w-4 mr-2" />
                     )}
+                    Connect Google Account
                   </Button>
                 </div>
+                
+                {connectedGoogleAccounts.length > 0 ? (
+                  <div className="space-y-2">
+                    {connectedGoogleAccounts.map((account) => (
+                      <div 
+                        key={account.id}
+                        className="flex items-center justify-between p-3 rounded-lg border border-border bg-muted/30"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                            <img 
+                              src="https://www.google.com/favicon.ico" 
+                              alt="Google" 
+                              className="h-4 w-4"
+                            />
+                          </div>
+                          <div>
+                            <p className="font-medium text-sm">
+                              {account.google_email || account.display_name || "Google Account"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Connected {new Date(account.created_at).toLocaleDateString()}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDisconnectGoogle(account.id)}
+                          disabled={saving}
+                        >
+                          <Unlink className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-lg border border-dashed border-border text-center">
+                    <p className="text-sm text-muted-foreground">
+                      No Google accounts connected for {contextLabel}.
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Click "Connect Google Account" to get started.
+                    </p>
+                  </div>
+                )}
               </div>
 
-              <div className="pt-2">
-                <Button onClick={handleSaveGoogle} disabled={saving}>
-                  {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Check className="h-4 w-4 mr-2" />
-                  )}
-                  Save Google Settings
-                </Button>
-              </div>
-
-              <div className="text-xs text-muted-foreground space-y-1 pt-2 border-t border-border">
-                <p><strong>Required OAuth Scopes:</strong></p>
-                <ul className="list-disc list-inside ml-2">
-                  <li>https://www.googleapis.com/auth/drive</li>
-                  <li>https://www.googleapis.com/auth/calendar</li>
-                  <li>https://www.googleapis.com/auth/gmail.send</li>
-                  <li>https://www.googleapis.com/auth/userinfo.email</li>
-                </ul>
-                <p className="pt-2"><strong>Authorized Redirect URI:</strong></p>
-                <code className="block bg-muted px-2 py-1 rounded text-xs">
-                  https://pccvvqmrwbcdjgkyteqn.supabase.co/functions/v1/google-oauth
-                </code>
+              <div className="border-t border-border pt-4">
+                <p className="text-xs text-muted-foreground mb-2">
+                  <strong>Note:</strong> Your OAuth credentials are configured globally. Click connect to authorize access.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  <strong>Redirect URI:</strong>{" "}
+                  <code className="bg-muted px-1 py-0.5 rounded text-xs">
+                    https://pccvvqmrwbcdjgkyteqn.supabase.co/functions/v1/google-oauth
+                  </code>
+                </p>
               </div>
             </CardContent>
           </Card>
