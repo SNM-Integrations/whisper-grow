@@ -101,16 +101,29 @@ Deno.serve(async (req) => {
         tokenData.organization_id = organizationId;
       }
 
-      // Use upsert with composite key
-      const { error: upsertError } = await supabase
+      // Delete existing token for this user/org combination, then insert new one
+      // This avoids the complex upsert constraint issues with nullable columns
+      const deleteQuery = supabase
         .from("google_auth_tokens")
-        .upsert(tokenData, {
-          onConflict: organizationId ? "user_id,organization_id" : "user_id",
-        });
+        .delete()
+        .eq("user_id", userId);
+      
+      if (organizationId) {
+        deleteQuery.eq("organization_id", organizationId);
+      } else {
+        deleteQuery.is("organization_id", null);
+      }
+      
+      await deleteQuery;
+      
+      // Now insert the new token
+      const { error: insertError } = await supabase
+        .from("google_auth_tokens")
+        .insert(tokenData);
 
-      if (upsertError) {
-        console.error("Failed to store tokens:", upsertError);
-        return new Response(`Failed to store tokens: ${upsertError.message}`, { status: 500 });
+      if (insertError) {
+        console.error("Failed to store tokens:", insertError);
+        return new Response(`Failed to store tokens: ${insertError.message}`, { status: 500 });
       }
 
       console.log("Tokens stored successfully for user:", userId, "org:", organizationId, "email:", googleEmail);
