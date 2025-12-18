@@ -164,16 +164,23 @@ Deno.serve(async (req) => {
         : user.id;
 
       // Generate authorization URL
+      const redirectUri = `${SUPABASE_URL}/functions/v1/google-oauth`;
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
-      authUrl.searchParams.set("redirect_uri", `${SUPABASE_URL}/functions/v1/google-oauth`);
+      authUrl.searchParams.set("redirect_uri", redirectUri);
       authUrl.searchParams.set("response_type", "code");
       authUrl.searchParams.set("scope", SCOPES);
       authUrl.searchParams.set("access_type", "offline");
       authUrl.searchParams.set("prompt", "consent");
       authUrl.searchParams.set("state", state);
 
-      console.log("Generated auth URL for user:", user.id, "org:", organizationId);
+      console.log("=== OAUTH DEBUG ===");
+      console.log("SUPABASE_URL:", SUPABASE_URL);
+      console.log("Redirect URI:", redirectUri);
+      console.log("Client ID:", GOOGLE_CLIENT_ID);
+      console.log("Full auth URL:", authUrl.toString());
+      console.log("User:", user.id, "Org:", organizationId);
+      console.log("===================");
 
       return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
