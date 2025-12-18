@@ -437,31 +437,51 @@ export type Database = {
         Row: {
           access_token: string
           created_at: string
+          display_name: string | null
           expires_at: string
+          google_email: string | null
           id: string
+          organization_id: string | null
           refresh_token: string
+          scopes: string[] | null
           updated_at: string
           user_id: string
         }
         Insert: {
           access_token: string
           created_at?: string
+          display_name?: string | null
           expires_at: string
+          google_email?: string | null
           id?: string
+          organization_id?: string | null
           refresh_token: string
+          scopes?: string[] | null
           updated_at?: string
           user_id: string
         }
         Update: {
           access_token?: string
           created_at?: string
+          display_name?: string | null
           expires_at?: string
+          google_email?: string | null
           id?: string
+          organization_id?: string | null
           refresh_token?: string
+          scopes?: string[] | null
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "google_auth_tokens_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       integration_settings: {
         Row: {

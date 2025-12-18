@@ -9,9 +9,10 @@ const GOOGLE_CLIENT_ID = Deno.env.get("GOOGLE_CLIENT_ID")!;
 const GOOGLE_CLIENT_SECRET = Deno.env.get("GOOGLE_CLIENT_SECRET")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
-// Scopes for Google Drive full access
+// Scopes for Google Drive + Calendar access
 const SCOPES = [
   "https://www.googleapis.com/auth/drive",
+  "https://www.googleapis.com/auth/calendar",
   "https://www.googleapis.com/auth/userinfo.email",
   "openid",
 ].join(" ");
@@ -59,6 +60,21 @@ Deno.serve(async (req) => {
       const tokens = await tokenResponse.json();
       console.log("Tokens received successfully");
 
+      // Fetch user's Google email
+      let googleEmail = null;
+      try {
+        const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${tokens.access_token}` },
+        });
+        if (userInfoResponse.ok) {
+          const userInfo = await userInfoResponse.json();
+          googleEmail = userInfo.email;
+          console.log("Google email fetched:", googleEmail);
+        }
+      } catch (e) {
+        console.error("Failed to fetch Google user info:", e);
+      }
+
       // Create Supabase client with service role
       const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
       const supabase = createClient(SUPABASE_URL, supabaseKey);
@@ -74,6 +90,8 @@ Deno.serve(async (req) => {
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           expires_at: expiresAt.toISOString(),
+          google_email: googleEmail,
+          scopes: SCOPES.split(" "),
           updated_at: new Date().toISOString(),
         }, {
           onConflict: "user_id",
@@ -84,7 +102,7 @@ Deno.serve(async (req) => {
         return new Response(`Failed to store tokens: ${upsertError.message}`, { status: 500 });
       }
 
-      console.log("Tokens stored successfully for user:", state);
+      console.log("Tokens stored successfully for user:", state, "email:", googleEmail);
 
       // Redirect back to app with success
       const appUrl = req.headers.get("origin") || "https://whisper-grow.lovable.app";
