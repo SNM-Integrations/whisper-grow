@@ -231,6 +231,13 @@ export function LeadsList() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="bg-popover border-border">
+                        <DropdownMenuItem
+                          className="gap-2 cursor-pointer"
+                          onClick={() => handleEdit(lead)}
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit / Create Work Order
+                        </DropdownMenuItem>
                         <DropdownMenuItem className="gap-2 cursor-pointer">
                           <Mail className="h-4 w-4" />
                           Send Email
@@ -245,13 +252,6 @@ export function LeadsList() {
                         >
                           <UserCheck className="h-4 w-4" />
                           Convert to Contact
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          className="gap-2 cursor-pointer"
-                          onClick={() => handleEdit(lead)}
-                        >
-                          <Edit className="h-4 w-4" />
-                          Edit
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="gap-2 cursor-pointer text-destructive focus:text-destructive"
