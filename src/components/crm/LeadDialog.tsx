@@ -198,6 +198,12 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
   const handleCreateWorkOrder = async () => {
     if (!lead) return;
 
+    // If already synced, just show success
+    if (isSynced) {
+      toast.success("Work order already created in SevenTime");
+      return;
+    }
+
     // Validate required fields
     const formValues = form.getValues();
     if (!formValues.name || !formValues.personal_number) {
@@ -219,7 +225,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
       email: formValues.email || null,
       phone: formValues.phone || null,
       company: formValues.company || null,
-      contact_type: "lead" as const,
+      contact_type: "lead" as const, // CRITICAL: Keep as lead
       tags: [formValues.status],
       visibility: owner.visibility,
       organization_id: owner.organizationId,
@@ -265,12 +271,13 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
         console.error('SevenTime API error:', data.error, data.details);
         toast.error(data.error + (data.details ? `: ${data.details}` : ''));
       } else {
-        toast.success("Work order created in SevenTime!");
+        toast.success("Work order sent to SevenTime!");
+        // Close dialog to trigger reload
         onOpenChange(false);
       }
     } catch (error) {
       console.error('SevenTime sync error:', error);
-      toast.error("Failed to create work order in SevenTime");
+      toast.error("Failed to send work order to SevenTime");
     } finally {
       setIsSyncing(false);
     }
@@ -532,23 +539,31 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
 
               <div className="flex justify-between gap-3 pt-4">
                 <div>
-                  {lead && !isSynced && (
+                  {lead && (
                     <Button 
                       type="button" 
-                      variant="outline"
                       onClick={handleCreateWorkOrder}
                       disabled={isSyncing || isSaving}
-                      className="bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20"
+                      className={isSynced 
+                        ? "bg-green-500/10 border-green-500/30 text-green-400 hover:bg-green-500/20" 
+                        : "bg-blue-500/10 border-blue-500/30 text-blue-400 hover:bg-blue-500/20"
+                      }
+                      variant="outline"
                     >
                       {isSyncing ? (
                         <>
                           <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          Creating Work Order...
+                          Sending to SevenTime...
+                        </>
+                      ) : isSynced ? (
+                        <>
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                          Work Order Sent
                         </>
                       ) : (
                         <>
                           <ExternalLink className="h-4 w-4 mr-2" />
-                          Create Work Order
+                          Send to SevenTime
                         </>
                       )}
                     </Button>
@@ -559,7 +574,7 @@ export function LeadDialog({ open, onOpenChange, lead }: LeadDialogProps) {
                     Cancel
                   </Button>
                   <Button type="submit" disabled={isSaving || isSyncing}>
-                    {isSaving ? "Saving..." : lead ? "Update" : "Create"}
+                    {isSaving ? "Saving..." : lead ? "Save Lead" : "Create Lead"}
                   </Button>
                 </div>
               </div>
