@@ -19,6 +19,7 @@ interface GoogleDriveNotesSyncProps {
 interface DriveFolder {
   id: string;
   name: string;
+  isSharedDrive?: boolean;
 }
 
 // Store folder link in localStorage for now (could move to user settings table later)
@@ -34,6 +35,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
   const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
   const [linkedFolder, setLinkedFolder] = useState<DriveFolder | null>(null);
   const [hasGoogleAuth, setHasGoogleAuth] = useState(false);
+  const [currentDriveId, setCurrentDriveId] = useState<string | null>(null);
 
   useEffect(() => {
     checkGoogleAuth();
@@ -90,23 +92,51 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
     }
   };
 
-  const loadFolders = async (folderId: string | null = null) => {
+  const loadFolders = async (folderId: string | null = null, driveId: string | null = null) => {
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("google-drive", {
-        body: { action: "list-folders", parentId: folderId },
-      });
+      // If at root, also load shared drives
+      if (!folderId && !driveId) {
+        const [foldersResponse, sharedDrivesResponse] = await Promise.all([
+          supabase.functions.invoke("google-drive", {
+            body: { action: "list-folders", parentId: null },
+          }),
+          supabase.functions.invoke("google-drive", {
+            body: { action: "list-shared-drives" },
+          }),
+        ]);
 
-      if (error) throw error;
-      
-      if (data?.needsAuth) {
-        setHasGoogleAuth(false);
-        toast.error("Please connect Google Drive first");
-        return;
+        if (foldersResponse.error) throw foldersResponse.error;
+        if (foldersResponse.data?.needsAuth) {
+          setHasGoogleAuth(false);
+          toast.error("Please connect Google Drive first");
+          return;
+        }
+
+        const myDriveFolders = foldersResponse.data?.data || [];
+        const sharedDrives = sharedDrivesResponse.data?.data || [];
+        
+        // Combine My Drive folders with Shared Drives
+        setFolders([...myDriveFolders, ...sharedDrives]);
+        setCurrentFolderId(null);
+        setCurrentDriveId(null);
+      } else {
+        const { data, error } = await supabase.functions.invoke("google-drive", {
+          body: { action: "list-folders", parentId: folderId, driveId },
+        });
+
+        if (error) throw error;
+        
+        if (data?.needsAuth) {
+          setHasGoogleAuth(false);
+          toast.error("Please connect Google Drive first");
+          return;
+        }
+        
+        setFolders(data?.data || []);
+        setCurrentFolderId(folderId);
+        setCurrentDriveId(driveId);
       }
-      
-      setFolders(data?.data || []);
-      setCurrentFolderId(folderId);
     } catch (error: any) {
       toast.error("Failed to load folders: " + error.message);
     } finally {
@@ -116,14 +146,27 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
 
   const navigateToFolder = (folder: DriveFolder) => {
     setFolderPath([...folderPath, folder]);
-    loadFolders(folder.id);
+    // If it's a shared drive, set the driveId for subsequent calls
+    if (folder.isSharedDrive) {
+      loadFolders(folder.id, folder.id);
+    } else {
+      loadFolders(folder.id, currentDriveId);
+    }
   };
 
   const navigateBack = () => {
     const newPath = [...folderPath];
     newPath.pop();
     setFolderPath(newPath);
-    loadFolders(newPath.length > 0 ? newPath[newPath.length - 1].id : null);
+    
+    if (newPath.length > 0) {
+      const lastFolder = newPath[newPath.length - 1];
+      // Determine the driveId based on the path
+      const sharedDrive = newPath.find(f => f.isSharedDrive);
+      loadFolders(lastFolder.id, sharedDrive?.id || null);
+    } else {
+      loadFolders(null, null);
+    }
   };
 
   const linkFolder = (folder: DriveFolder) => {

@@ -87,12 +87,38 @@ async function getValidAccessToken(supabase: any, userId: string): Promise<strin
   return null;
 }
 
-async function listDriveFolders(accessToken: string, parentId?: string): Promise<any[]> {
+async function listSharedDrives(accessToken: string): Promise<any[]> {
+  const url = `https://www.googleapis.com/drive/v3/drives?pageSize=100&fields=drives(id,name)`;
+
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (!response.ok) {
+    console.error("Failed to list shared drives:", await response.text());
+    return [];
+  }
+
+  const data = await response.json();
+  return (data.drives || []).map((drive: any) => ({
+    ...drive,
+    isSharedDrive: true,
+    mimeType: "application/vnd.google-apps.folder",
+  }));
+}
+
+async function listDriveFolders(accessToken: string, parentId?: string, driveId?: string): Promise<any[]> {
   const query = parentId
     ? `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
     : `'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
 
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)&orderBy=name`;
+  // Build URL with shared drive support
+  let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+  
+  // If accessing a shared drive, add corpora and driveId
+  if (driveId) {
+    url += `&corpora=drive&driveId=${driveId}`;
+  }
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -107,9 +133,14 @@ async function listDriveFolders(accessToken: string, parentId?: string): Promise
   return data.files || [];
 }
 
-async function listDriveFiles(accessToken: string, folderId: string): Promise<any[]> {
+async function listDriveFiles(accessToken: string, folderId: string, driveId?: string): Promise<any[]> {
   const query = `'${folderId}' in parents and trashed=false`;
-  const url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,modifiedTime,size)&orderBy=name`;
+  let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,modifiedTime,size)&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`;
+
+  // If accessing a shared drive, add corpora and driveId
+  if (driveId) {
+    url += `&corpora=drive&driveId=${driveId}`;
+  }
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -290,8 +321,12 @@ Deno.serve(async (req) => {
     let result: any;
 
     switch (action) {
+      case "list-shared-drives":
+        result = await listSharedDrives(accessToken);
+        break;
+
       case "list-folders":
-        result = await listDriveFolders(accessToken, params.parentId);
+        result = await listDriveFolders(accessToken, params.parentId, params.driveId);
         break;
 
       case "list-files":
@@ -301,7 +336,7 @@ Deno.serve(async (req) => {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
           });
         }
-        result = await listDriveFiles(accessToken, params.folderId);
+        result = await listDriveFiles(accessToken, params.folderId, params.driveId);
         break;
 
       case "download":
