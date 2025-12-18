@@ -267,28 +267,29 @@ export const IntegrationSettings = () => {
         throw new Error("No session found. Please log in again.");
       }
 
-      // Build OAuth URL with organization context
-      const params = new URLSearchParams({
-        action: "authorize",
-      });
+      // Request OAuth URL via POST
+      const body: Record<string, string> = {};
       if (isOrgContext && currentOrg) {
-        params.append("organization_id", currentOrg.id);
+        body.organization_id = currentOrg.id;
       }
 
       const response = await fetch(
-        `${supabaseUrl}/functions/v1/google-oauth?${params.toString()}`,
+        `${supabaseUrl}/functions/v1/google-oauth`,
         {
+          method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
           },
+          body: JSON.stringify(body),
         }
       );
 
       const data = await response.json();
       
-      if (data.url) {
+      if (data.authUrl) {
         // Redirect to Google OAuth
-        window.location.href = data.url;
+        window.location.href = data.authUrl;
       } else {
         throw new Error(data.error || "Failed to get OAuth URL");
       }

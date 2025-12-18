@@ -29,14 +29,18 @@ Deno.serve(async (req) => {
     // Handle OAuth callback (GET request with code parameter)
     if (req.method === "GET" && url.searchParams.has("code")) {
       const code = url.searchParams.get("code")!;
-      const state = url.searchParams.get("state"); // Contains user_id
+      const state = url.searchParams.get("state"); // Contains user_id or user_id:org_id
       
       if (!state) {
         return new Response("Missing state parameter", { status: 400 });
       }
 
-      console.log("OAuth callback received, exchanging code for tokens...");
-      console.log("Using redirect_uri:", `${SUPABASE_URL}/functions/v1/google-oauth`);
+      // Parse state - may be "user_id" or "user_id:org_id"
+      const stateParts = state.split(":");
+      const userId = stateParts[0];
+      const organizationId = stateParts[1] || null;
+
+      console.log("OAuth callback received, user:", userId, "org:", organizationId);
 
       // Exchange code for tokens
       const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
@@ -82,19 +86,26 @@ Deno.serve(async (req) => {
       // Calculate expiry time
       const expiresAt = new Date(Date.now() + tokens.expires_in * 1000);
 
-      // Store tokens in database
+      // Store tokens in database with organization context
+      const tokenData: Record<string, unknown> = {
+        user_id: userId,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: expiresAt.toISOString(),
+        google_email: googleEmail,
+        scopes: SCOPES.split(" "),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (organizationId) {
+        tokenData.organization_id = organizationId;
+      }
+
+      // Use upsert with composite key
       const { error: upsertError } = await supabase
         .from("google_auth_tokens")
-        .upsert({
-          user_id: state,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          expires_at: expiresAt.toISOString(),
-          google_email: googleEmail,
-          scopes: SCOPES.split(" "),
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: "user_id",
+        .upsert(tokenData, {
+          onConflict: organizationId ? "user_id,organization_id" : "user_id",
         });
 
       if (upsertError) {
@@ -102,7 +113,7 @@ Deno.serve(async (req) => {
         return new Response(`Failed to store tokens: ${upsertError.message}`, { status: 500 });
       }
 
-      console.log("Tokens stored successfully for user:", state, "email:", googleEmail);
+      console.log("Tokens stored successfully for user:", userId, "org:", organizationId, "email:", googleEmail);
 
       // Redirect back to app with success
       const appUrl = req.headers.get("origin") || "https://whisper-grow.lovable.app";
@@ -138,6 +149,20 @@ Deno.serve(async (req) => {
         });
       }
 
+      // Get organization_id from body if provided
+      let organizationId: string | null = null;
+      try {
+        const body = await req.json();
+        organizationId = body.organization_id || null;
+      } catch {
+        // No body or invalid JSON, that's fine
+      }
+
+      // Create state that includes both user_id and organization_id
+      const state = organizationId 
+        ? `${user.id}:${organizationId}` 
+        : user.id;
+
       // Generate authorization URL
       const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
       authUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
@@ -146,11 +171,9 @@ Deno.serve(async (req) => {
       authUrl.searchParams.set("scope", SCOPES);
       authUrl.searchParams.set("access_type", "offline");
       authUrl.searchParams.set("prompt", "consent");
-      authUrl.searchParams.set("state", user.id); // Pass user_id in state
+      authUrl.searchParams.set("state", state);
 
-      console.log("Generated auth URL for user:", user.id);
-      console.log("Auth URL redirect_uri:", `${SUPABASE_URL}/functions/v1/google-oauth`);
-      console.log("Full auth URL:", authUrl.toString());
+      console.log("Generated auth URL for user:", user.id, "org:", organizationId);
 
       return new Response(JSON.stringify({ authUrl: authUrl.toString() }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
