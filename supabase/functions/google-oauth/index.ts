@@ -128,12 +128,12 @@ Deno.serve(async (req) => {
 
       console.log("Tokens stored successfully for user:", userId, "org:", organizationId, "email:", googleEmail);
 
-      // Redirect back to app with success
-      const appUrl = req.headers.get("origin") || "https://whisper-grow.lovable.app";
+      // Redirect back to app with success - use preview URL for development
+      const appUrl = "https://preview--pccvvqmrwbcdjgkyteqn.lovable.app";
       return new Response(null, {
         status: 302,
         headers: {
-          Location: `${appUrl}/?google_auth=success`,
+          Location: `${appUrl}/settings?google_auth=success`,
         },
       });
     }
