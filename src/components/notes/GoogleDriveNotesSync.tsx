@@ -8,7 +8,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FolderSync, Folder, ChevronRight, Loader2, Unlink } from "lucide-react";
+import { FolderSync, Folder, ChevronRight, Loader2, Unlink, FileText } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -16,10 +16,18 @@ interface GoogleDriveNotesSyncProps {
   onSyncComplete?: () => void;
 }
 
-interface DriveFolder {
+interface DriveItem {
   id: string;
   name: string;
+  mimeType?: string;
   isSharedDrive?: boolean;
+  isFolder?: boolean;
+}
+
+interface LinkedFolder {
+  id: string;
+  name: string;
+  driveId?: string | null;
 }
 
 // Store folder link in localStorage for now (could move to user settings table later)
@@ -30,10 +38,10 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [folders, setFolders] = useState<DriveFolder[]>([]);
+  const [items, setItems] = useState<DriveItem[]>([]);
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
-  const [folderPath, setFolderPath] = useState<DriveFolder[]>([]);
-  const [linkedFolder, setLinkedFolder] = useState<DriveFolder | null>(null);
+  const [folderPath, setFolderPath] = useState<DriveItem[]>([]);
+  const [linkedFolder, setLinkedFolder] = useState<LinkedFolder | null>(null);
   const [hasGoogleAuth, setHasGoogleAuth] = useState(false);
   const [currentDriveId, setCurrentDriveId] = useState<string | null>(null);
 
@@ -92,10 +100,10 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
     }
   };
 
-  const loadFolders = async (folderId: string | null = null, driveId: string | null = null) => {
+  const loadItems = async (folderId: string | null = null, driveId: string | null = null) => {
     setIsLoading(true);
     try {
-      // If at root, also load shared drives
+      // If at root, load shared drives + My Drive folders
       if (!folderId && !driveId) {
         const [foldersResponse, sharedDrivesResponse] = await Promise.all([
           supabase.functions.invoke("google-drive", {
@@ -113,44 +121,75 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
           return;
         }
 
-        const myDriveFolders = foldersResponse.data?.data || [];
-        const sharedDrives = sharedDrivesResponse.data?.data || [];
+        const myDriveFolders = (foldersResponse.data?.data || []).map((f: any) => ({
+          ...f,
+          isFolder: true,
+        }));
+        const sharedDrives = (sharedDrivesResponse.data?.data || []).map((d: any) => ({
+          ...d,
+          isFolder: true,
+        }));
         
         // Combine My Drive folders with Shared Drives
-        setFolders([...myDriveFolders, ...sharedDrives]);
+        setItems([...myDriveFolders, ...sharedDrives]);
         setCurrentFolderId(null);
         setCurrentDriveId(null);
       } else {
-        const { data, error } = await supabase.functions.invoke("google-drive", {
-          body: { action: "list-folders", parentId: folderId, driveId },
-        });
+        // Load both folders AND files from the current location
+        const [foldersResponse, filesResponse] = await Promise.all([
+          supabase.functions.invoke("google-drive", {
+            body: { action: "list-folders", parentId: folderId, driveId },
+          }),
+          supabase.functions.invoke("google-drive", {
+            body: { action: "list-files", folderId: folderId, driveId },
+          }),
+        ]);
 
-        if (error) throw error;
+        if (foldersResponse.error) throw foldersResponse.error;
+        if (filesResponse.error) throw filesResponse.error;
         
-        if (data?.needsAuth) {
+        if (foldersResponse.data?.needsAuth || filesResponse.data?.needsAuth) {
           setHasGoogleAuth(false);
           toast.error("Please connect Google Drive first");
           return;
         }
+
+        const folders = (foldersResponse.data?.data || []).map((f: any) => ({
+          ...f,
+          isFolder: true,
+        }));
         
-        setFolders(data?.data || []);
+        // Filter files to only show documents/notes (not all file types)
+        const files = (filesResponse.data?.data || []).filter((f: any) => 
+          f.mimeType?.includes("document") || 
+          f.mimeType?.includes("text") ||
+          f.mimeType === "application/vnd.google-apps.document"
+        ).map((f: any) => ({
+          ...f,
+          isFolder: false,
+        }));
+        
+        // Show folders first, then files
+        setItems([...folders, ...files]);
         setCurrentFolderId(folderId);
         setCurrentDriveId(driveId);
       }
     } catch (error: any) {
-      toast.error("Failed to load folders: " + error.message);
+      toast.error("Failed to load items: " + error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const navigateToFolder = (folder: DriveFolder) => {
-    setFolderPath([...folderPath, folder]);
+  const navigateToFolder = (item: DriveItem) => {
+    if (!item.isFolder) return;
+    
+    setFolderPath([...folderPath, item]);
     // If it's a shared drive, set the driveId for subsequent calls
-    if (folder.isSharedDrive) {
-      loadFolders(folder.id, folder.id);
+    if (item.isSharedDrive) {
+      loadItems(item.id, item.id);
     } else {
-      loadFolders(folder.id, currentDriveId);
+      loadItems(item.id, currentDriveId);
     }
   };
 
@@ -163,17 +202,22 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
       const lastFolder = newPath[newPath.length - 1];
       // Determine the driveId based on the path
       const sharedDrive = newPath.find(f => f.isSharedDrive);
-      loadFolders(lastFolder.id, sharedDrive?.id || null);
+      loadItems(lastFolder.id, sharedDrive?.id || null);
     } else {
-      loadFolders(null, null);
+      loadItems(null, null);
     }
   };
 
-  const linkFolder = (folder: DriveFolder) => {
-    setLinkedFolder(folder);
-    localStorage.setItem(DRIVE_FOLDER_KEY, JSON.stringify(folder));
+  const linkFolder = (item: DriveItem) => {
+    const folderData: LinkedFolder = {
+      id: item.id,
+      name: item.name,
+      driveId: item.isSharedDrive ? item.id : currentDriveId,
+    };
+    setLinkedFolder(folderData);
+    localStorage.setItem(DRIVE_FOLDER_KEY, JSON.stringify(folderData));
     setIsOpen(false);
-    toast.success(`Linked to folder: ${folder.name}`);
+    toast.success(`Linked to folder: ${item.name}`);
   };
 
   const unlinkFolder = () => {
@@ -193,9 +237,13 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get files from Drive folder
+      // Get files from Drive folder (pass driveId for shared drives)
       const { data: filesData, error: filesError } = await supabase.functions.invoke("google-drive", {
-        body: { action: "list-files", folderId: linkedFolder.id },
+        body: { 
+          action: "list-files", 
+          folderId: linkedFolder.id,
+          driveId: linkedFolder.driveId 
+        },
       });
 
       if (filesError) throw filesError;
@@ -279,6 +327,54 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
     );
   }
 
+  const renderItemsList = () => (
+    <ScrollArea className="h-64 border rounded-md">
+      {isLoading ? (
+        <div className="flex items-center justify-center h-full">
+          <Loader2 className="h-6 w-6 animate-spin" />
+        </div>
+      ) : items.length === 0 ? (
+        <div className="p-4 text-center text-muted-foreground text-sm">
+          No items found
+        </div>
+      ) : (
+        <div className="p-2 space-y-1">
+          {items.map((item) => (
+            <div
+              key={item.id}
+              className="flex items-center justify-between p-2 rounded hover:bg-accent"
+            >
+              {item.isFolder ? (
+                <>
+                  <button
+                    className="flex items-center gap-2 flex-1"
+                    onClick={() => navigateToFolder(item)}
+                  >
+                    <Folder className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm">{item.name}</span>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+                  </button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => linkFolder(item)}
+                  >
+                    Select
+                  </Button>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 flex-1 text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  <span className="text-sm">{item.name}</span>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </ScrollArea>
+  );
+
   return (
     <div className="flex items-center gap-2">
       {linkedFolder ? (
@@ -302,7 +398,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
                 variant="ghost"
                 size="sm"
                 className="text-xs text-muted-foreground"
-                onClick={() => loadFolders()}
+                onClick={() => loadItems()}
               >
                 {linkedFolder.name}
               </Button>
@@ -326,42 +422,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
                   </Button>
                 )}
 
-                <ScrollArea className="h-64 border rounded-md">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-6 w-6 animate-spin" />
-                    </div>
-                  ) : folders.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground text-sm">
-                      No folders found
-                    </div>
-                  ) : (
-                    <div className="p-2 space-y-1">
-                      {folders.map((folder) => (
-                        <div
-                          key={folder.id}
-                          className="flex items-center justify-between p-2 rounded hover:bg-accent"
-                        >
-                          <button
-                            className="flex items-center gap-2 flex-1"
-                            onClick={() => navigateToFolder(folder)}
-                          >
-                            <Folder className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{folder.name}</span>
-                            <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                          </button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => linkFolder(folder)}
-                          >
-                            Select
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </ScrollArea>
+                {renderItemsList()}
               </div>
             </DialogContent>
           </Dialog>
@@ -372,7 +433,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
             <Button
               variant="outline"
               size="sm"
-              onClick={() => loadFolders()}
+              onClick={() => loadItems()}
             >
               <FolderSync className="h-4 w-4 mr-1" />
               Link Drive
@@ -389,42 +450,7 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
                 </Button>
               )}
 
-              <ScrollArea className="h-64 border rounded-md">
-                {isLoading ? (
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-6 w-6 animate-spin" />
-                  </div>
-                ) : folders.length === 0 ? (
-                  <div className="p-4 text-center text-muted-foreground text-sm">
-                    No folders found
-                  </div>
-                ) : (
-                  <div className="p-2 space-y-1">
-                    {folders.map((folder) => (
-                      <div
-                        key={folder.id}
-                        className="flex items-center justify-between p-2 rounded hover:bg-accent"
-                      >
-                        <button
-                          className="flex items-center gap-2 flex-1"
-                          onClick={() => navigateToFolder(folder)}
-                        >
-                          <Folder className="h-4 w-4 text-muted-foreground" />
-                          <span className="text-sm">{folder.name}</span>
-                          <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                        </button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => linkFolder(folder)}
-                        >
-                          Select
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
+              {renderItemsList()}
             </div>
           </DialogContent>
         </Dialog>
