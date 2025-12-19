@@ -25,7 +25,7 @@ interface DriveItem {
 }
 
 interface LinkedFolder {
-  id: string;
+  id: string | null;
   name: string;
   driveId?: string | null;
 }
@@ -209,11 +209,18 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
   };
 
   const linkFolder = (item: DriveItem) => {
-    const folderData: LinkedFolder = {
-      id: item.id,
-      name: item.name,
-      driveId: item.isSharedDrive ? item.id : currentDriveId,
-    };
+    // If linking a shared drive, set id to null (drive root) and driveId to the drive ID
+    const folderData: LinkedFolder = item.isSharedDrive
+      ? {
+          id: null,
+          name: item.name,
+          driveId: item.id,
+        }
+      : {
+          id: item.id,
+          name: item.name,
+          driveId: currentDriveId,
+        };
     setLinkedFolder(folderData);
     localStorage.setItem(DRIVE_FOLDER_KEY, JSON.stringify(folderData));
     setIsOpen(false);
