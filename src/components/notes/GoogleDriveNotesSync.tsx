@@ -185,9 +185,9 @@ const GoogleDriveNotesSync: React.FC<GoogleDriveNotesSyncProps> = ({ onSyncCompl
     if (!item.isFolder) return;
     
     setFolderPath([...folderPath, item]);
-    // If it's a shared drive, set the driveId for subsequent calls
+    // If it's a shared drive, we're entering the drive root (use null as parentId, drive ID as driveId)
     if (item.isSharedDrive) {
-      loadItems(item.id, item.id);
+      loadItems(null, item.id);
     } else {
       loadItems(item.id, currentDriveId);
     }

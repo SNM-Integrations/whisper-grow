@@ -108,9 +108,17 @@ async function listSharedDrives(accessToken: string): Promise<any[]> {
 }
 
 async function listDriveFolders(accessToken: string, parentId?: string, driveId?: string): Promise<any[]> {
-  const query = parentId
-    ? `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`
-    : `'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  let query: string;
+  
+  // If we have a driveId but no parentId, we're at the root of a shared drive
+  if (driveId && !parentId) {
+    query = `mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  } else if (parentId) {
+    query = `'${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  } else {
+    // My Drive root
+    query = `'root' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`;
+  }
 
   // Build URL with shared drive support
   let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType)&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`;
@@ -133,8 +141,18 @@ async function listDriveFolders(accessToken: string, parentId?: string, driveId?
   return data.files || [];
 }
 
-async function listDriveFiles(accessToken: string, folderId: string, driveId?: string): Promise<any[]> {
-  const query = `'${folderId}' in parents and trashed=false`;
+async function listDriveFiles(accessToken: string, folderId: string | null, driveId?: string): Promise<any[]> {
+  let query: string;
+  
+  // If we have a driveId but no folderId, we're at the root of a shared drive
+  if (driveId && !folderId) {
+    query = `trashed=false and mimeType!='application/vnd.google-apps.folder'`;
+  } else if (folderId) {
+    query = `'${folderId}' in parents and trashed=false`;
+  } else {
+    return [];
+  }
+  
   let url = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(query)}&fields=files(id,name,mimeType,modifiedTime,size)&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`;
 
   // If accessing a shared drive, add corpora and driveId
@@ -330,13 +348,7 @@ Deno.serve(async (req) => {
         break;
 
       case "list-files":
-        if (!params.folderId) {
-          return new Response(JSON.stringify({ error: "folderId required" }), {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        }
-        result = await listDriveFiles(accessToken, params.folderId, params.driveId);
+        result = await listDriveFiles(accessToken, params.folderId || null, params.driveId);
         break;
 
       case "download":
